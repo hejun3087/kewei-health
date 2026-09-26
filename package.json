@@ -1,0 +1,19 @@
+{
+  "name": "kewei-health",
+  "version": "1.0.0",
+  "private": true,
+  "description": "可为健康 - 个人健康档案智能管理平台",
+  "workspaces": [
+    "server",
+    "web",
+    "miniprogram"
+  ],
+  "scripts": {
+    "dev:server": "cd server && npm run dev",
+    "dev:web": "cd web && npm run dev",
+    "dev:mini": "cd miniprogram && npm run dev:mp-weixin",
+    "build:server": "cd server && npm run build",
+    "build:web": "cd web && npm run build",
+    "build:mini": "cd miniprogram && npm run build:mp-weixin"
+  }
+}

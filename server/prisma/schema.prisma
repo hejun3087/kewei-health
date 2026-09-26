@@ -1,0 +1,317 @@
+// Prisma Schema - 可为健康档案管理平台
+// 数据库：PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 用户系统 ====================
+
+/// 用户表
+model User {
+  id            String    @id @default(cuid())
+  phone         String    @unique // 手机号
+  password      String?   // 密码（bcrypt加密）
+  nickname      String?   // 昵称
+  avatar        String?   // 头像URL
+  gender        Gender?   // 性别
+  birthDate     DateTime? // 出生日期
+  height        Float?    // 身高(cm)
+  weight        Float?    // 体重(kg)
+  allergyHistory String?  // 过敏史（JSON字符串）
+  medicalHistory String?  // 慢性病史（JSON字符串）
+  wxOpenId      String?   @unique // 微信OpenID
+  wxUnionId     String?   @unique // 微信UnionID
+  storageUsed   BigInt    @default(0) // 已用存储空间(bytes)
+  storageLimit  BigInt    @default(1073741824) // 存储上限(bytes)，默认1GB
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime? // 软删除
+
+  // 关系
+  familyMembers FamilyMember[] // 家庭成员（包含本人）
+  reports       Report[]
+  medications   Medication[]
+  diagnoses     Diagnosis[]   // 就诊诊断记录
+  uploads       Upload[]
+}
+
+/// 家庭成员表
+model FamilyMember {
+  id            String    @id @default(cuid())
+  userId        String    // 所属用户
+  name          String    // 姓名
+  relation      Relation  // 与用户关系
+  gender        Gender?
+  birthDate     DateTime?
+  avatar        String?   // 头像URL
+  isDefault     Boolean   @default(false) // 是否为默认成员（本人）
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 关系
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports       Report[]
+  medications   Medication[]
+  diagnoses     Diagnosis[]
+  
+  @@index([userId])
+}
+
+// ==================== 检查报告 ====================
+
+/// 检查报告表
+model Report {
+  id            String       @id @default(cuid())
+  userId        String
+  memberId      String       // 所属家庭成员
+  reportType    ReportType   // 报告类型
+  categoryL1    String       // 一级分类
+  categoryL2    String?      // 二级分类
+  hospital      String?      // 医院名称
+  department    String?      // 科室
+  doctor        String?      // 医生
+  reportDate    DateTime     // 报告日期
+  summary       String?      // 摘要/结论
+  status        ReportStatus @default(CONFIRMED)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+
+  // 关系
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  member        FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  items         ReportItem[]
+  images        ReportImage[]
+  medications   Medication[] // 关联用药
+
+  @@index([userId, reportDate])
+  @@index([memberId, reportDate])
+  @@index([categoryL1])
+}
+
+/// 检查项目明细表（具体的每一项检查指标）
+model ReportItem {
+  id            String    @id @default(cuid())
+  reportId      String
+  name          String    // 检查项目名称，如"白细胞计数"
+  code          String?   // 项目编码
+  value         String    // 检测值
+  unit          String?   // 单位
+  referenceMin  Float?    // 参考范围下限
+  referenceMax  Float?    // 参考范围上限
+  referenceText String?   // 参考范围文本（当范围不规则时）
+  abnormal      AbnormalFlag? // 异常标记
+  isNumeric     Boolean   @default(true) // 是否为数值型（可用于趋势图）
+  sortOrder     Int       @default(0) // 排序
+
+  createdAt     DateTime  @default(now())
+
+  // 关系
+  report        Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([name])
+}
+
+/// 报告图片表（原始报告照片）
+model ReportImage {
+  id            String    @id @default(cuid())
+  reportId      String
+  imageUrl      String    // 图片存储URL
+  thumbnailUrl  String?   // 缩略图URL
+  sortOrder     Int       @default(0)
+  fileSize      Int       // 文件大小(bytes)
+  createdAt     DateTime  @default(now())
+
+  // 关系
+  report        Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
+
+// ==================== 就诊诊断记录 ====================
+
+/// 就诊诊断记录表
+model Diagnosis {
+  id            String    @id @default(cuid())
+  userId        String
+  memberId      String       // 所属家庭成员
+  visitDate     DateTime     // 就诊日期
+  hospital      String?      // 医院名称
+  department    String?      // 科室
+  doctor        String?      // 接诊医生
+  complaint     String?      // 主诉（患者自述症状）
+  diagnosisText String       // 诊断结果文本
+  diagnosisCode String?      // ICD-10 编码
+  advice        String?      // 医嘱/处置意见
+  nextVisitDate DateTime?    // 下次复诊日期
+  reportId      String?      // 关联的检查报告（可选）
+  status        DiagnosisStatus @default(CONFIRMED)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // 关系
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  member        FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  images        DiagnosisImage[]
+
+  @@index([userId, visitDate])
+  @@index([memberId, visitDate])
+  @@index([diagnosisCode])
+}
+
+/// 诊断记录图片表
+model DiagnosisImage {
+  id            String    @id @default(cuid())
+  diagnosisId   String
+  imageUrl      String    // 图片存储URL
+  thumbnailUrl  String?   // 缩略图URL
+  sortOrder     Int       @default(0)
+  fileSize      Int       // 文件大小(bytes)
+  createdAt     DateTime  @default(now())
+
+  // 关系
+  diagnosis     Diagnosis @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+
+  @@index([diagnosisId])
+}
+
+// ==================== 用药记录 ====================
+
+/// 用药记录表
+model Medication {
+  id            String    @id @default(cuid())
+  userId        String
+  memberId      String
+  reportId      String?   // 关联的报告（可选）
+  drugName      String    // 药品通用名
+  tradeName     String?   // 商品名
+  specification String?   // 规格
+  dosageForm    String?   // 剂型（片剂、胶囊、注射液等）
+  usage         String?   // 用法（口服、注射、外用等）
+  dosage        String?   // 用量（每次1片）
+  frequency     String?   // 频次（每日3次）
+  mealRelation  String?   // 与餐关系（饭前/饭后/空腹）
+  startDate     DateTime? // 开始日期
+  endDate       DateTime? // 结束日期
+  days          Int?      // 用药天数
+  hospital      String?   // 开药医院
+  doctor        String?   // 开药医生
+  category      DrugCategory @default(WESTERN) // 药品分类
+  notes         String?   // 备注
+  status        MedicationStatus @default(USING) // 用药状态
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // 关系
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  member        FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  reports       Report[]     // 关联的报告
+
+  @@index([userId, status])
+  @@index([memberId])
+  @@index([drugName])
+}
+
+// ==================== 文件上传 ====================
+
+/// 上传记录表
+model Upload {
+  id            String    @id @default(cuid())
+  userId        String
+  originalName  String    // 原始文件名
+  storagePath   String    // 存储路径
+  fileSize      Int       // 文件大小(bytes)
+  mimeType      String    // MIME类型
+  status        UploadStatus @default(PENDING) // 上传/AI处理状态
+  aiResult      Json?     // AI识别结果（JSON）
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 关系
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+// ==================== 枚举定义 ====================
+
+enum UserStatus {
+  ACTIVE    // 正常
+  DISABLED  // 禁用
+  DELETED   // 已注销
+}
+
+enum Gender {
+  MALE      // 男
+  FEMALE    // 女
+}
+
+enum Relation {
+  SELF      // 本人
+  SPOUSE    // 配偶
+  FATHER    // 父亲
+  MOTHER    // 母亲
+  CHILD     // 子女
+  SIBLING   // 兄弟姐妹
+  OTHER     // 其他
+}
+
+enum ReportType {
+  LAB           // 化验报告
+  IMAGING       // 影像检查
+  PRESCRIPTION  // 处方
+  MEDICAL_RECORD // 病历
+  PHYSICAL_EXAM // 体检报告
+  VACCINATION   // 疫苗接种
+  SURGERY       // 手术记录
+  OTHER         // 其他
+}
+
+enum ReportStatus {
+  PENDING   // 待确认（AI识别中）
+  CONFIRMED // 已确认
+  REJECTED  // 已拒绝
+}
+
+enum AbnormalFlag {
+  NORMAL  // 正常
+  HIGH    // 偏高 ↑
+  LOW     // 偏低 ↓
+  ABNORMAL // 异常（无法确定高低）
+}
+
+enum DrugCategory {
+  WESTERN       // 西药
+  CHINESE_PATENT // 中成药
+  HERBAL        // 中草药
+  SUPPLEMENT    // 保健品/营养补充剂
+}
+
+enum MedicationStatus {
+  USING     // 正在使用
+  STOPPED   // 已停用
+  UNKNOWN   // 未知
+}
+
+enum UploadStatus {
+  PENDING    // 待处理
+  PROCESSING // AI处理中
+  COMPLETED  // 处理完成
+  FAILED     // 处理失败
+}
+
+enum DiagnosisStatus {
+  PENDING   // 待确认（AI识别中）
+  CONFIRMED // 已确认
+  REJECTED  // 已拒绝
+}
