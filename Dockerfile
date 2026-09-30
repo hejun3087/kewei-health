@@ -28,13 +28,18 @@ COPY web/ ./web/
 RUN npm run build -w web
 
 # ============ 生产依赖（仅 server 运行时） ============
+# 注意：npm ci 的依赖全部提升至根 node_modules，不会生成 server/node_modules；
+# 故整仓 --omit=dev 安装，并显式生成 Prisma Client（产物在根 node_modules/.prisma）
 FROM node:20-alpine AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY server/package.json ./server/
 COPY web/package.json ./web/
 COPY miniprogram/package.json ./miniprogram/
-RUN npm ci --omit=dev -w server
+COPY server/prisma ./server/prisma
+RUN npm ci --omit=dev \
+ && npx prisma generate --schema server/prisma/schema.prisma \
+ && mkdir -p /app/server/node_modules
 
 # ============ 生产镜像 ============
 FROM node:20-alpine
@@ -43,7 +48,7 @@ RUN apk add --no-cache dumb-init
 
 WORKDIR /app
 
-# 运行时依赖（workspaces 依赖会提升至根 node_modules）
+# 运行时依赖（workspaces 依赖全部提升至根 node_modules，prod-deps 已保证 server/node_modules 存在）
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/server/node_modules ./server/node_modules
 
