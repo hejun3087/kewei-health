@@ -26,6 +26,10 @@ data/
 *.log
 npm-debug.log*
 
+# 测试临时输出
+server/jest-*.txt
+web_build.txt
+
 # OS
 .DS_Store
 Thumbs.db
