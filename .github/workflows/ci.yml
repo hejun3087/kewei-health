@@ -1,0 +1,52 @@
+# ============================================
+# 可为健康 - CI/CD 流水线
+# push / PR：三端构建 + 后端单测
+# master：额外验证 Docker 镜像构建（不推送）
+# ============================================
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build:
+    name: 构建三端（server / web / miniprogram）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装依赖（monorepo 根 lock）
+        run: npm ci
+
+      - name: 生成 Prisma Client
+        run: npx prisma generate --schema server/prisma/schema.prisma
+
+      - name: 构建后端
+        run: npm run build -w server
+
+      - name: 构建 Web 前端
+        run: npm run build -w web
+
+      - name: 构建微信小程序
+        run: npm run build:mini
+
+      - name: 后端单元测试
+        run: npm test -w server
+
+  docker:
+    name: Docker 镜像构建验证
+    if: github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 构建镜像（不推送）
+        run: docker build -t kewei-health:ci .

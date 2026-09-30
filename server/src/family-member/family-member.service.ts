@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MemberService } from '../member/member.service';
 
@@ -35,8 +35,9 @@ export class FamilyMemberService {
     const limit = await this.memberService.getMemberLimit(userId);
     const count = await this.prisma.familyMember.count({ where: { userId } });
     if (count >= limit) {
-      throw new BadRequestException(
+      throw new HttpException(
         `当前套餐家庭成员上限为 ${limit} 人，升级套餐可添加更多成员`,
+        HttpStatus.PAYMENT_REQUIRED,
       );
     }
 

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { message } from 'antd';
+import { message, Modal } from 'antd';
 
 const api = axios.create({
   baseURL: '/api',
@@ -16,6 +16,21 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// 402 付费墙：引导升级弹窗（防并发请求重复弹出）
+let paywallShown = false;
+function showPaywallModal(tip: string) {
+  if (paywallShown) return;
+  paywallShown = true;
+  Modal.confirm({
+    title: '👑 套餐额度不足',
+    content: tip,
+    okText: '去升级套餐',
+    cancelText: '暂不升级',
+    onOk: () => { window.location.href = '/membership'; },
+    afterClose: () => { paywallShown = false; },
+  });
+}
+
 // 响应拦截器：统一错误处理
 api.interceptors.response.use(
   (res) => res,
@@ -27,6 +42,8 @@ api.interceptors.response.use(
         localStorage.removeItem('user');
         window.location.href = '/login';
         message.error('登录已过期，请重新登录');
+      } else if (status === 402) {
+        showPaywallModal(data?.message || '当前套餐额度已用尽，升级套餐可享更多权益');
       } else {
         message.error(data?.message || '请求失败');
       }

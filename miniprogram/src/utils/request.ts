@@ -21,6 +21,25 @@ interface ReqOptions {
   header?: Record<string, string>;
 }
 
+// 402 付费墙：引导升级弹窗（防并发请求重复弹出）
+let paywallShown = false;
+function showPaywall(tip: string) {
+  if (paywallShown) return;
+  paywallShown = true;
+  uni.showModal({
+    title: '套餐额度不足',
+    content: tip,
+    confirmText: '去升级',
+    cancelText: '暂不升级',
+    success: (res) => {
+      if (res.confirm) {
+        uni.navigateTo({ url: '/pages/membership/index' });
+      }
+    },
+    complete: () => { paywallShown = false; },
+  });
+}
+
 /** 统一请求封装：自动附加 JWT，统一错误处理，返回响应体 data */
 export function request<T = any>(options: ReqOptions): Promise<T> {
   const token = uni.getStorageSync('token');
@@ -43,6 +62,12 @@ export function request<T = any>(options: ReqOptions): Promise<T> {
         }
         if (status === 401) {
           redirectToLogin();
+          reject(res);
+          return;
+        }
+        if (status === 402) {
+          const tip = res.data?.message || '当前套餐额度已用尽，升级套餐可享更多权益';
+          showPaywall(Array.isArray(tip) ? tip[0] : tip);
           reject(res);
           return;
         }

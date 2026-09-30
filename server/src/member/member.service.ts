@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PLAN_CONFIG, UNLIMITED, PlanConfig } from './plan.config';
 
@@ -179,8 +179,9 @@ export class MemberService {
     const sub = await this.getOrCreate(userId);
     const cfg = PLAN_CONFIG[sub.plan as keyof typeof PLAN_CONFIG];
     if (cfg.aiPerMonth !== UNLIMITED && sub.aiUsageCount >= cfg.aiPerMonth) {
-      throw new BadRequestException(
+      throw new HttpException(
         `本月AI识别次数已用尽（${cfg.aiPerMonth}次），升级套餐可享更多额度`,
+        HttpStatus.PAYMENT_REQUIRED,
       );
     }
     await this.prisma.subscription.update({
