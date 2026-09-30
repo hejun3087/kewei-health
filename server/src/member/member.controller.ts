@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MemberService } from './member.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -20,6 +20,16 @@ export class MemberController {
   @ApiOperation({ summary: '获取全部套餐（供前端展示升级选项）' })
   listPlans() {
     return this.memberService.listPlans();
+  }
+
+  @Get('orders')
+  @ApiOperation({ summary: '支付订单历史（分页）' })
+  listOrders(@Request() req, @Query() query: { page?: string; pageSize?: string }) {
+    return this.memberService.listOrders(
+      req.user.userId,
+      query.page ? Number(query.page) : 1,
+      query.pageSize ? Number(query.pageSize) : 20,
+    );
   }
 
   @Post('upgrade')

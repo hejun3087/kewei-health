@@ -41,6 +41,7 @@ model User {
   diagnoses     Diagnosis[]   // 就诊诊断记录
   uploads       Upload[]
   subscription  Subscription? // 会员订阅（一对一）
+  paymentOrders PaymentOrder[] // 支付订单历史
 }
 
 /// 家庭成员表
@@ -360,4 +361,29 @@ enum PaymentMethod {
   WECHAT   // 微信支付
   ALIPAY   // 支付宝
   MANUAL   // 手动/赠送
+}
+
+/// 支付订单表（订单历史，支付网关接入后由回调更新状态）
+model PaymentOrder {
+  id            String        @id @default(cuid())
+  orderId       String        @unique // 业务订单号（KW...）
+  userId        String
+  plan          Plan          // 购买套餐
+  amount        Int           // 金额（分）
+  paymentMethod PaymentMethod @default(WECHAT)
+  status        OrderStatus   @default(PENDING) // 订单状态
+  paidAt        DateTime?     // 支付完成时间
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+enum OrderStatus {
+  PENDING    // 待支付
+  PAID       // 已支付
+  FAILED     // 支付失败
+  REFUNDED   // 已退款
 }

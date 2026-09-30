@@ -8,6 +8,9 @@
     "web",
     "miniprogram"
   ],
+  "overrides": {
+    "vite": "^5.4.21"
+  },
   "scripts": {
     "dev:server": "cd server && npm run dev",
     "dev:web": "cd web && npm run dev",

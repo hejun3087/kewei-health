@@ -87,14 +87,27 @@ export class MemberService {
     const cfg = PLAN_CONFIG[plan];
     const orderId = `KW${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
+    // 订单落库（PENDING），支付网关接入后由回调更新状态
+    const order = await this.prisma.paymentOrder.create({
+      data: {
+        orderId,
+        userId,
+        plan: plan as any,
+        amount: cfg.priceYearly * 100,
+        paymentMethod: paymentMethod as any,
+      },
+    });
+
     // TODO: 接入微信支付统一下单 API，返回前端调起支付所需参数
     // 当前无支付凭证，采用"模拟支付成功直接激活"以便联调
     return {
+      id: order.id,
       orderId,
       plan,
       planName: cfg.name,
       amount: cfg.priceYearly * 100, // 转分
       paymentMethod,
+      status: order.status,
       // 真实环境应返回 prepay_id / code_url，前端调起支付
       mockPaid: true,
       message: '支付网关未接入，已模拟支付成功并激活订阅',
@@ -120,6 +133,14 @@ export class MemberService {
       },
     });
 
+    // 同步订单状态为已支付（模拟支付或支付回调均走此处置 PAID）
+    if (orderId) {
+      await this.prisma.paymentOrder.updateMany({
+        where: { orderId, userId },
+        data: { status: 'PAID', paidAt: new Date() },
+      });
+    }
+
     // 同步用户存储上限
     await this.prisma.user.update({
       where: { id: userId },
@@ -128,6 +149,21 @@ export class MemberService {
 
     this.logger.log(`用户 ${userId} 已升级为 ${plan}`);
     return sub;
+  }
+
+  /** 支付订单历史列表（分页对象契约 {total,items}） */
+  async listOrders(userId: string, page = 1, pageSize = 20) {
+    const where = { userId };
+    const [total, items] = await Promise.all([
+      this.prisma.paymentOrder.count({ where }),
+      this.prisma.paymentOrder.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+    return { total, items, page, pageSize };
   }
 
   /** 取消自动续费 */

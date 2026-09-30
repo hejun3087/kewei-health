@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Table, Tag, Button, Space, Modal, Form, Input, DatePicker, Select, message } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from '../utils/api';
 
 export default function DiagnosesPage() {
+  const navigate = useNavigate();
   const [diagnoses, setDiagnoses] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,9 +63,12 @@ export default function DiagnosesPage() {
     { title: '诊断', dataIndex: 'diagnosisText', key: 'diagnosisText', ellipsis: true },
     { title: '医嘱', dataIndex: 'advice', key: 'advice', ellipsis: true },
     {
-      title: '操作', key: 'action', width: 80,
+      title: '操作', key: 'action', width: 140,
       render: (_: any, record: any) => (
-        <Button type="link" size="small" danger onClick={() => handleDelete(record.id)}><DeleteOutlined /></Button>
+        <Space size="small">
+          <Button type="link" size="small" onClick={() => navigate(`/diagnoses/${record.id}`)}>详情</Button>
+          <Button type="link" size="small" danger onClick={() => handleDelete(record.id)}><DeleteOutlined /></Button>
+        </Space>
       ),
     },
   ];

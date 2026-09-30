@@ -3,8 +3,6 @@
 # 用于开发环境和生产部署
 # ============================================
 
-version: '3.8'
-
 services:
   # ---- PostgreSQL 数据库 ----
   postgres:
@@ -53,12 +51,23 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres123}@postgres:5432/kewei_health?schema=public
       JWT_SECRET: ${JWT_SECRET:-kewei-health-jwt-secret-2026}
-      AI_API_KEY: ${AI_API_KEY:-}
-      AI_API_ENDPOINT: ${AI_API_ENDPOINT:-https://api.openai.com/v1/chat/completions}
+      NODE_ENV: production
       PORT: 3000
       REDIS_URL: redis://redis:6379
+      # CORS 允许的前端域名（逗号分隔，部署后改为正式域名）
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      # AI 识别：mock=本地模拟；baidu=接入百度OCR（需密钥）
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      BAIDU_API_KEY: ${BAIDU_API_KEY:-}
+      BAIDU_SECRET_KEY: ${BAIDU_SECRET_KEY:-}
     volumes:
       - uploads_data:/app/server/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,7 +84,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./web/dist:/usr/share/nginx/html:ro
+      - ./web/dist:/usr/share/nginx/html:ro  # 部署前本地执行 npm run build -w web
       - ./ssl:/etc/nginx/ssl:ro  # SSL证书（生产环境）
     depends_on:
       - server

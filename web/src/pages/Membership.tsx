@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  Card, Row, Col, Progress, Button, Tag, Space, Modal, message, Statistic, Divider, Empty,
+  Card, Row, Col, Progress, Button, Tag, Space, Modal, message, Statistic, Divider, Empty, Table,
 } from 'antd';
 import { CrownOutlined, CheckOutlined } from '@ant-design/icons';
 import api from '../utils/api';
@@ -35,11 +35,47 @@ const GB = 1024 * 1024 * 1024;
 const fmtGB = (bytes: number) => `${(bytes / GB).toFixed(0)}GB`;
 const fmtCount = (n: number) => (n === -1 ? '不限' : `${n}`);
 
+const orderStatusMap: Record<string, { color: string; text: string }> = {
+  PENDING: { color: 'processing', text: '待支付' },
+  PAID: { color: 'success', text: '已支付' },
+  FAILED: { color: 'error', text: '支付失败' },
+  REFUNDED: { color: 'warning', text: '已退款' },
+};
+const planNameMap: Record<string, string> = {
+  FREE: '免费版', STANDARD: '标准版', PROFESSIONAL: '专业版', FAMILY: '家庭版',
+};
+const payMethodMap: Record<string, string> = { WECHAT: '微信支付', ALIPAY: '支付宝', MANUAL: '手动/赠送' };
+
+const orderColumns = [
+  { title: '订单号', dataIndex: 'orderId', key: 'orderId' },
+  { title: '套餐', dataIndex: 'plan', key: 'plan', render: (v: string) => planNameMap[v] || v },
+  { title: '金额', dataIndex: 'amount', key: 'amount', render: (v: number) => `￥${(v / 100).toFixed(2)}` },
+  { title: '支付方式', dataIndex: 'paymentMethod', key: 'paymentMethod', render: (v: string) => payMethodMap[v] || v },
+  {
+    title: '状态', dataIndex: 'status', key: 'status',
+    render: (v: string) => {
+      const info = orderStatusMap[v];
+      return info ? <Tag color={info.color}>{info.text}</Tag> : v;
+    },
+  },
+  { title: '下单时间', dataIndex: 'createdAt', key: 'createdAt', render: (v: string) => v ? new Date(v).toLocaleString() : '-' },
+  { title: '支付时间', dataIndex: 'paidAt', key: 'paidAt', render: (v: string) => v ? new Date(v).toLocaleString() : '-' },
+];
+
 export default function MembershipPage() {
   const [sub, setSub] = useState<Subscription | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  const loadOrders = () => {
+    setOrdersLoading(true);
+    api.get('/member/orders', { params: { pageSize: 10 } })
+      .then((res) => setOrders(res.data?.items || []))
+      .finally(() => setOrdersLoading(false));
+  };
 
   const load = () => {
     setLoading(true);
@@ -54,7 +90,7 @@ export default function MembershipPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadOrders(); }, []);
 
   const handleUpgrade = (plan: Plan) => {
     Modal.confirm({
@@ -78,6 +114,7 @@ export default function MembershipPage() {
           const res = await api.post('/member/upgrade', { plan: plan.plan, paymentMethod: 'WECHAT' });
           message.success(`已成功升级为${plan.name}`);
           setSub(res.data.subscription);
+          loadOrders();
         } finally {
           setUpgrading(null);
         }
@@ -155,6 +192,19 @@ export default function MembershipPage() {
           );
         })}
       </Row>
+
+      <Divider orientation="left">订单历史</Divider>
+      <Card>
+        <Table
+          dataSource={orders}
+          columns={orderColumns}
+          rowKey="id"
+          loading={ordersLoading}
+          size="small"
+          pagination={false}
+          locale={{ emptyText: '暂无订单记录' }}
+        />
+      </Card>
     </div>
   );
 }

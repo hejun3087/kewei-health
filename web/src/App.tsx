@@ -7,6 +7,7 @@ import HomePage from './pages/Home';
 import ReportsPage from './pages/Reports';
 import ReportDetailPage from './pages/ReportDetail';
 import DiagnosesPage from './pages/Diagnoses';
+import DiagnosisDetailPage from './pages/DiagnosisDetail';
 import MedicationsPage from './pages/Medications';
 import TrendPage from './pages/Trend';
 import UploadPage from './pages/Upload';
@@ -40,6 +41,7 @@ function App() {
         <Route path="reports" element={<ReportsPage />} />
         <Route path="reports/:id" element={<ReportDetailPage />} />
         <Route path="diagnoses" element={<DiagnosesPage />} />
+        <Route path="diagnoses/:id" element={<DiagnosisDetailPage />} />
         <Route path="medications" element={<MedicationsPage />} />
         <Route path="trend" element={<TrendPage />} />
         <Route path="upload" element={<UploadPage />} />
