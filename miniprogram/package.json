@@ -7,18 +7,22 @@
     "build:mp-weixin": "uni build -p mp-weixin"
   },
   "dependencies": {
-    "@dcloudio/uni-app": "3.0.0-4010120250128001",
-    "@dcloudio/uni-components": "3.0.0-4010120250128001",
-    "@dcloudio/uni-mp-weixin": "3.0.0-4010120250128001",
-    "vue": "^3.4.0",
+    "@dcloudio/uni-app": "3.0.0-alpha-5020720260921001",
+    "@dcloudio/uni-components": "3.0.0-alpha-5020720260921001",
+    "@dcloudio/uni-mp-weixin": "3.0.0-alpha-5020720260921001",
+    "vue": "3.4.21",
     "pinia": "^2.1.7"
   },
   "devDependencies": {
     "@dcloudio/types": "^3.4.0",
-    "@dcloudio/uni-automator": "3.0.0-4010120250128001",
-    "@dcloudio/uni-cli-shared": "3.0.0-4010120250128001",
-    "@dcloudio/vite-plugin-uni": "3.0.0-4010120250128001",
+    "@dcloudio/uni-cli-shared": "3.0.0-alpha-5020720260921001",
+    "@dcloudio/uni-mp-vite": "3.0.0-alpha-5020720260921001",
+    "@dcloudio/uni-mp-vue": "3.0.0-alpha-5020720260921001",
+    "@dcloudio/uni-mp-compiler": "3.0.0-alpha-5020720260921001",
+    "@dcloudio/uni-shared": "3.0.0-alpha-5020720260921001",
+    "@dcloudio/vite-plugin-uni": "3.0.0-alpha-5020720260921001",
+    "@vitejs/plugin-vue": "^5.2.0",
     "typescript": "^5.3.3",
-    "vite": "^5.0.8"
+    "vite": "^5.2.8"
   }
 }

@@ -25,11 +25,13 @@ export class UserService {
   }
 
   async getUserById(userId: string) {
-    const { password, ...user } = await this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { familyMembers: true },
     });
-    return user;
+    if (!user) return null;
+    const { password, ...result } = user;
+    return result;
   }
 
   async deleteAccount(userId: string) {

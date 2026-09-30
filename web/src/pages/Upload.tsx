@@ -1,40 +1,93 @@
-import { useState } from 'react';
-import { Card, Upload, Button, message, Steps, Table, Tag, Result } from 'antd';
-import { InboxOutlined, CameraOutlined } from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import { Card, Upload, Button, message, Steps, Table, Tag, Select, Space } from 'antd';
+import { InboxOutlined } from '@ant-design/icons';
+import api from '../utils/api';
 
 const { Dragger } = Upload;
 
 export default function UploadPage() {
   const [step, setStep] = useState(0);
   const [aiResult, setAiResult] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
+  const [members, setMembers] = useState<any[]>([]);
+  const [memberId, setMemberId] = useState<string>();
 
-  const handleUpload = (file: File) => {
-    // 模拟上传和AI识别
+  useEffect(() => {
+    api.get('/family-members').then((res) => {
+      const list = Array.isArray(res.data) ? res.data : res.data?.members || [];
+      setMembers(list);
+      const def = list.find((m: any) => m.isDefault) || list[0];
+      if (def) setMemberId(def.id);
+    }).catch(() => {});
+  }, []);
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
     setStep(1);
-    setTimeout(() => {
+
+    try {
+      // 1. 上传图片
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadRes = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      // 2. 调用AI识别
+      const aiRes = await api.post('/ai/recognize', {
+        uploadId: uploadRes.data.id,
+      });
+
+      setAiResult(aiRes.data);
+      setStep(2);
+    } catch {
       setAiResult({
-        reportType: 'LAB',
-        categoryL1: '血液检查',
-        categoryL2: '血常规',
-        hospital: '北京协和医院',
-        reportDate: '2026-09-20',
-        confidence: 0.92,
-        items: [
-          { name: '白细胞计数', value: '6.8', unit: '10^9/L', reference: '3.5-9.5', abnormal: 'NORMAL' },
-          { name: '红细胞计数', value: '4.52', unit: '10^12/L', reference: '4.3-5.8', abnormal: 'NORMAL' },
-          { name: '血红蛋白', value: '138', unit: 'g/L', reference: '130-175', abnormal: 'NORMAL' },
-        ],
+        reportType: 'OTHER',
+        categoryL1: '',
+        categoryL2: '',
+        hospital: '',
+        reportDate: new Date().toISOString().slice(0, 10),
+        confidence: 0,
+        items: [],
       });
       setStep(2);
-    }, 2000);
-    return false; // 阻止自动上传
+    } finally {
+      setUploading(false);
+    }
+    return false;
   };
 
-  const handleSave = () => {
-    message.success('报告已保存');
-    setStep(0);
-    setAiResult(null);
+  const handleSave = async () => {
+    if (!memberId) {
+      message.warning('请选择家庭成员');
+      return;
+    }
+    try {
+      await api.post('/reports', {
+        memberId,
+        reportType: aiResult.reportType || 'OTHER',
+        categoryL1: aiResult.categoryL1 || '未分类',
+        categoryL2: aiResult.categoryL2,
+        hospital: aiResult.hospital,
+        department: aiResult.department,
+        reportDate: aiResult.reportDate,
+        summary: aiResult.summary,
+        items: aiResult.items,
+      });
+      message.success('报告已保存');
+      setStep(0);
+      setAiResult(null);
+    } catch {
+      // 拦截器处理
+    }
   };
+
+  const titleText =
+    aiResult?.confidence > 0
+      ? `识别结果（置信度：${(aiResult.confidence * 100).toFixed(0)}%）`
+      : aiResult?.items?.length > 0
+        ? '识别结果（示例数据，请核对后保存）'
+        : '未识别到内容，请手动添加';
 
   return (
     <div>
@@ -51,8 +104,8 @@ export default function UploadPage() {
 
       {step === 0 && (
         <Dragger
-          accept="image/*"
-          multiple
+          accept="image/jpeg,image/png,image/heic"
+          multiple={false}
           beforeUpload={handleUpload}
           showUploadList={false}
         >
@@ -79,26 +132,51 @@ export default function UploadPage() {
       )}
 
       {step === 2 && aiResult && (
-        <Card title={`识别结果（置信度：${(aiResult.confidence * 100).toFixed(0)}%）`} extra={<Button type="primary" onClick={handleSave}>确认保存</Button>}>
+        <Card
+          title={titleText}
+          extra={
+            <Space>
+              <Select
+                placeholder="选择成员"
+                style={{ width: 140 }}
+                value={memberId}
+                onChange={setMemberId}
+                options={members.map((m) => ({ value: m.id, label: m.name }))}
+              />
+              <Button type="primary" onClick={handleSave} loading={uploading}>
+                确认保存
+              </Button>
+            </Space>
+          }
+        >
           <div style={{ marginBottom: 16 }}>
-            <Tag color="blue">{aiResult.categoryL1}</Tag>
-            <Tag>{aiResult.categoryL2}</Tag>
-            <Tag color="green">{aiResult.hospital}</Tag>
-            <span style={{ color: '#666', marginLeft: 8 }}>{aiResult.reportDate}</span>
+            {aiResult.categoryL1 && <Tag color="blue">{aiResult.categoryL1}</Tag>}
+            {aiResult.categoryL2 && <Tag>{aiResult.categoryL2}</Tag>}
+            {aiResult.hospital && <Tag color="green">{aiResult.hospital}</Tag>}
+            {aiResult.reportDate && <span style={{ color: '#666', marginLeft: 8 }}>{aiResult.reportDate}</span>}
           </div>
-          <Table
-            dataSource={aiResult.items}
-            columns={[
-              { title: '项目', dataIndex: 'name' },
-              { title: '结果', dataIndex: 'value' },
-              { title: '单位', dataIndex: 'unit' },
-              { title: '参考范围', dataIndex: 'reference' },
-              { title: '状态', dataIndex: 'abnormal', render: (v: string) => v === 'NORMAL' ? <Tag color="green">正常</Tag> : <Tag color="red">异常</Tag> },
-            ]}
-            rowKey="name"
-            pagination={false}
-            size="small"
-          />
+          {aiResult.items?.length > 0 ? (
+            <Table
+              dataSource={aiResult.items}
+              columns={[
+                { title: '项目', dataIndex: 'name' },
+                { title: '结果', dataIndex: 'value' },
+                { title: '单位', dataIndex: 'unit' },
+                { title: '参考范围', render: (_: any, r: any) => (r.referenceMin != null ? `${r.referenceMin}-${r.referenceMax}` : '-') },
+                {
+                  title: '状态', dataIndex: 'abnormal',
+                  render: (v: string) => v === 'NORMAL' ? <Tag color="green">正常</Tag> : <Tag color="red">异常</Tag>,
+                },
+              ]}
+              rowKey="name"
+              pagination={false}
+              size="small"
+            />
+          ) : (
+            <div style={{ textAlign: 'center', color: '#999', padding: 20 }}>
+              未识别到检查明细，请前往"检查报告"页手动添加
+            </div>
+          )}
         </Card>
       )}
     </div>

@@ -1,27 +1,32 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Row, Col, Card, Statistic, List, Tag, Button, Empty } from 'antd';
-import { FileTextOutlined, MedicineBoxOutlined, CloudUploadOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { Row, Col, Card, Statistic, List, Tag, Button, Empty, Spin } from 'antd';
+import { FileTextOutlined, MedicineBoxOutlined, CloudUploadOutlined, ArrowUpOutlined } from '@ant-design/icons';
+import api from '../utils/api';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: 从API获取数据，当前使用模拟数据
-    setDashboard({
-      totalReports: 12,
-      currentMedications: 3,
-      trackableItems: 8,
-      recentReports: [
-        { id: '1', reportDate: '2026-09-20', categoryL1: '血液检查', categoryL2: '血常规', hospital: '北京协和医院', summary: '各项指标正常' },
-        { id: '2', reportDate: '2026-09-15', categoryL1: '生化检查', categoryL2: '肝功能', hospital: '北京协和医院', summary: 'ALT偏高' },
-        { id: '3', reportDate: '2026-09-10', categoryL1: '影像检查', categoryL2: '腹部B超', hospital: '北京大学人民医院', summary: '未见异常' },
-      ],
-    });
+    Promise.all([
+      api.get('/reports/dashboard').catch(() => ({ data: { totalReports: 0, recentReports: [] } })),
+      api.get('/medications/current').catch(() => ({ data: [] })),
+      api.get('/reports/trackable-items').catch(() => ({ data: [] })),
+    ])
+      .then(([reportsRes, medsRes, trackRes]) => {
+        setDashboard({
+          totalReports: reportsRes.data.totalReports || 0,
+          currentMedications: Array.isArray(medsRes.data) ? medsRes.data.length : 0,
+          trackableItems: Array.isArray(trackRes.data) ? trackRes.data.length : 0,
+          recentReports: reportsRes.data.recentReports || [],
+        });
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  if (!dashboard) return null;
+  if (loading) return <Spin style={{ display: 'block', margin: '100px auto' }} />;
 
   return (
     <div>
@@ -62,9 +67,9 @@ export default function HomePage() {
                         {item.categoryL2}
                       </span>
                     }
-                    description={`${item.hospital} · ${item.reportDate}`}
+                    description={`${item.hospital || ''} · ${item.reportDate?.slice(0, 10) || ''}`}
                   />
-                  <span style={{ color: '#666' }}>{item.summary}</span>
+                  <span style={{ color: '#666' }}>{item.summary || ''}</span>
                 </List.Item>
               )}
               locale={{ emptyText: <Empty description="暂无报告，快去上传吧" /> }}

@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Avatar, Dropdown, Button } from 'antd';
+import { Layout, Menu, Avatar, Dropdown } from 'antd';
 import {
   HomeOutlined,
   FileTextOutlined,
@@ -8,26 +8,31 @@ import {
   CloudUploadOutlined,
   UserOutlined,
   LogoutOutlined,
+  SolutionOutlined,
+  CrownOutlined,
 } from '@ant-design/icons';
+import { useAuth } from '../contexts/AuthContext';
 
 const { Header, Sider, Content } = Layout;
 
 const menuItems = [
   { key: '/', icon: <HomeOutlined />, label: '首页' },
   { key: '/reports', icon: <FileTextOutlined />, label: '检查报告' },
+  { key: '/diagnoses', icon: <SolutionOutlined />, label: '就诊记录' },
   { key: '/medications', icon: <MedicineBoxOutlined />, label: '用药记录' },
   { key: '/trend', icon: <LineChartOutlined />, label: '趋势分析' },
   { key: '/upload', icon: <CloudUploadOutlined />, label: '上传报告' },
+  { key: '/membership', icon: <CrownOutlined />, label: '会员中心' },
   { key: '/profile', icon: <UserOutlined />, label: '个人中心' },
 ];
 
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    logout();
     navigate('/login');
   };
 
@@ -37,7 +42,6 @@ export default function MainLayout() {
     { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: handleLogout },
   ];
 
-  // 当前选中的菜单项
   const selectedKey = location.pathname === '/' ? '/' : '/' + location.pathname.split('/')[1];
 
   return (
@@ -61,7 +65,7 @@ export default function MainLayout() {
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
             <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
               <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1677ff' }} />
-              <span>我的账户</span>
+              <span>{user?.nickname || '我的账户'}</span>
             </div>
           </Dropdown>
         </Header>

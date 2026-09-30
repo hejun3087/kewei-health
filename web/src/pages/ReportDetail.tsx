@@ -1,30 +1,26 @@
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Descriptions, Table, Tag, Button, Image, Tabs } from 'antd';
+import { Card, Descriptions, Table, Tag, Button, Spin, Empty } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
+import api from '../utils/api';
 
-const mockReport = {
-  reportDate: '2026-09-20', categoryL1: '血液检查', categoryL2: '血常规',
-  hospital: '北京协和医院', department: '检验科', doctor: '李医生',
-  summary: '血常规检查，各项指标基本正常',
-  items: [
-    { name: '白细胞计数', value: '6.8', unit: '10^9/L', reference: '3.5-9.5', abnormal: 'NORMAL' },
-    { name: '红细胞计数', value: '4.52', unit: '10^12/L', reference: '4.3-5.8', abnormal: 'NORMAL' },
-    { name: '血红蛋白', value: '138', unit: 'g/L', reference: '130-175', abnormal: 'NORMAL' },
-    { name: '血小板计数', value: '225', unit: '10^9/L', reference: '125-350', abnormal: 'NORMAL' },
-  ],
+const abnormalMap: Record<string, { color: string; text: string }> = {
+  NORMAL: { color: 'green', text: '正常' },
+  HIGH: { color: 'red', text: '偏高 ↑' },
+  LOW: { color: 'blue', text: '偏低 ↓' },
+  ABNORMAL: { color: 'orange', text: '异常' },
 };
 
 const itemColumns = [
   { title: '检查项目', dataIndex: 'name', key: 'name' },
   { title: '检测结果', dataIndex: 'value', key: 'value' },
-  { title: '单位', dataIndex: 'unit', key: 'unit' },
-  { title: '参考范围', dataIndex: 'reference', key: 'reference' },
+  { title: '单位', dataIndex: 'unit', key: 'unit', render: (v: string) => v || '-' },
+  { title: '参考范围', dataIndex: 'referenceText', key: 'referenceText', render: (v: string) => v || '-' },
   {
     title: '异常', dataIndex: 'abnormal', key: 'abnormal',
     render: (v: string) => {
-      if (v === 'HIGH') return <Tag color="red">偏高 ↑</Tag>;
-      if (v === 'LOW') return <Tag color="blue">偏低 ↓</Tag>;
-      return <Tag color="green">正常</Tag>;
+      const info = abnormalMap[v];
+      return info ? <Tag color={info.color}>{info.text}</Tag> : '-';
     },
   },
 ];
@@ -32,36 +28,37 @@ const itemColumns = [
 export default function ReportDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [report, setReport] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    api.get(`/reports/${id}`)
+      .then((res) => setReport(res.data))
+      .catch(() => navigate('/reports'))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) return <Spin style={{ display: 'block', margin: '100px auto' }} />;
+  if (!report) return <Empty description="报告不存在" />;
 
   return (
     <div>
       <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} style={{ marginBottom: 16 }}>返回</Button>
       <Card title="报告详情">
         <Descriptions bordered column={2} style={{ marginBottom: 24 }}>
-          <Descriptions.Item label="报告日期">{mockReport.reportDate}</Descriptions.Item>
-          <Descriptions.Item label="医院">{mockReport.hospital}</Descriptions.Item>
-          <Descriptions.Item label="分类"><Tag color="blue">{mockReport.categoryL1}</Tag> {mockReport.categoryL2}</Descriptions.Item>
-          <Descriptions.Item label="科室">{mockReport.department}</Descriptions.Item>
-          <Descriptions.Item label="摘要" span={2}>{mockReport.summary}</Descriptions.Item>
+          <Descriptions.Item label="报告日期">{report.reportDate?.slice(0, 10)}</Descriptions.Item>
+          <Descriptions.Item label="医院">{report.hospital || '-'}</Descriptions.Item>
+          <Descriptions.Item label="分类"><Tag color="blue">{report.categoryL1}</Tag> {report.categoryL2 || ''}</Descriptions.Item>
+          <Descriptions.Item label="科室">{report.department || '-'}</Descriptions.Item>
+          <Descriptions.Item label="摘要" span={2}>{report.summary || '-'}</Descriptions.Item>
         </Descriptions>
 
-        <Tabs items={[
-          {
-            key: 'items',
-            label: '检查明细',
-            children: <Table dataSource={mockReport.items} columns={itemColumns} rowKey="name" pagination={false} />,
-          },
-          {
-            key: 'images',
-            label: '原始图片',
-            children: <div style={{ textAlign: 'center', color: '#999', padding: 40 }}>暂无原始图片</div>,
-          },
-          {
-            key: 'trend',
-            label: '趋势图',
-            children: <div style={{ textAlign: 'center', color: '#999', padding: 40 }}>需要至少2次同类检查数据才能生成趋势图</div>,
-          },
-        ]} />
+        {report.items?.length > 0 ? (
+          <Table dataSource={report.items} columns={itemColumns} rowKey="id" pagination={false} />
+        ) : (
+          <Empty description="暂无检查明细" style={{ padding: 40 }} />
+        )}
       </Card>
     </div>
   );

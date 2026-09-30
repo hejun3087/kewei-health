@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MemberService } from '../member/member.service';
 
 @Injectable()
 export class FamilyMemberService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private memberService: MemberService,
+  ) {}
 
   async findAll(userId: string) {
     return this.prisma.familyMember.findMany({
@@ -27,6 +31,15 @@ export class FamilyMemberService {
     birthDate?: string;
     avatar?: string;
   }) {
+    // 按当前套餐校验成员数量上限（含本人）
+    const limit = await this.memberService.getMemberLimit(userId);
+    const count = await this.prisma.familyMember.count({ where: { userId } });
+    if (count >= limit) {
+      throw new BadRequestException(
+        `当前套餐家庭成员上限为 ${limit} 人，升级套餐可添加更多成员`,
+      );
+    }
+
     return this.prisma.familyMember.create({
       data: {
         userId,

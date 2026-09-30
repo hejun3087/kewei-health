@@ -1,29 +1,26 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, Card, Tabs, message } from 'antd';
-import { UserOutlined, LockOutlined, PhoneOutlined } from '@ant-design/icons';
+import { LockOutlined, PhoneOutlined } from '@ant-design/icons';
+import { useAuth } from '../contexts/AuthContext';
+import api from '../utils/api';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handlePhoneLogin = async (values: { phone: string }) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/login/phone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
-      const data = await res.json();
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+      const res = await api.post('/auth/login/phone', values);
+      if (res.data.token) {
+        login(res.data.token, res.data.user);
         message.success('登录成功');
         navigate('/');
       }
-    } catch (err) {
-      message.error('登录失败，请重试');
+    } catch {
+      // 错误由拦截器处理
     } finally {
       setLoading(false);
     }
@@ -32,20 +29,14 @@ export default function LoginPage() {
   const handlePasswordLogin = async (values: { phone: string; password: string }) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/login/password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
-      const data = await res.json();
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+      const res = await api.post('/auth/login/password', values);
+      if (res.data.token) {
+        login(res.data.token, res.data.user);
         message.success('登录成功');
         navigate('/');
       }
-    } catch (err) {
-      message.error('登录失败，请检查手机号和密码');
+    } catch {
+      // 错误由拦截器处理
     } finally {
       setLoading(false);
     }
@@ -67,7 +58,7 @@ export default function LoginPage() {
               label: '手机号登录',
               children: (
                 <Form onFinish={handlePhoneLogin} size="large">
-                  <Form.Item name="phone" rules={[{ required: true, message: '请输入手机号' }]}>
+                  <Form.Item name="phone" rules={[{ required: true, message: '请输入手机号' }, { pattern: /^1\d{10}$/, message: '手机号格式不正确' }]}>
                     <Input prefix={<PhoneOutlined />} placeholder="手机号" />
                   </Form.Item>
                   <Form.Item>

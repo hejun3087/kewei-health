@@ -1,19 +1,73 @@
-import { useState } from 'react';
-import { Card, Select, DatePicker, Empty } from 'antd';
-
-const mockItems = [
-  { name: '白细胞计数', unit: '10^9/L' },
-  { name: '红细胞计数', unit: '10^12/L' },
-  { name: '血红蛋白', unit: 'g/L' },
-  { name: '血小板计数', unit: '10^9/L' },
-  { name: '空腹血糖', unit: 'mmol/L' },
-  { name: '总胆固醇', unit: 'mmol/L' },
-  { name: '甘油三酯', unit: 'mmol/L' },
-  { name: 'ALT', unit: 'U/L' },
-];
+import { useEffect, useState, useRef } from 'react';
+import { Card, Select, DatePicker, Empty, Spin } from 'antd';
+import * as echarts from 'echarts';
+import api from '../utils/api';
 
 export default function TrendPage() {
   const [selectedItem, setSelectedItem] = useState<string>();
+  const [trackableItems, setTrackableItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<echarts.ECharts>();
+
+  useEffect(() => {
+    api.get('/reports/trackable-items').then((res) => {
+      const items = Array.isArray(res.data) ? res.data : [];
+      setTrackableItems(items);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedItem || !chartRef.current) return;
+
+    setLoading(true);
+    api.get('/reports/trend', {
+      params: { itemName: selectedItem },
+    }).then((res) => {
+      const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
+      renderChart(data);
+    }).catch(() => {
+      renderChart([]);
+    }).finally(() => setLoading(false));
+  }, [selectedItem]);
+
+  const renderChart = (data: any[]) => {
+    if (!chartRef.current) return;
+
+    if (!chartInstance.current) {
+      chartInstance.current = echarts.init(chartRef.current);
+    }
+
+    const dates = data.map((d: any) => (d.date || d.reportDate)?.slice(0, 10));
+    const values = data.map((d: any) => parseFloat(d.value));
+
+    chartInstance.current.setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: 60, right: 30, top: 40, bottom: 40 },
+      xAxis: { type: 'category', data: dates, axisLabel: { rotate: 30 } },
+      yAxis: { type: 'value', name: data[0]?.unit || '' },
+      series: [
+        {
+          name: selectedItem,
+          type: 'line',
+          data: values,
+          smooth: true,
+          lineStyle: { color: '#1677ff', width: 2 },
+          itemStyle: { color: '#1677ff' },
+          areaStyle: { color: 'rgba(22,119,255,0.1)' },
+        },
+      ],
+    });
+  };
+
+  useEffect(() => {
+    const handleResize = () => chartInstance.current?.resize();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chartInstance.current?.dispose();
+    };
+  }, []);
 
   return (
     <div>
@@ -23,22 +77,22 @@ export default function TrendPage() {
           <Select
             placeholder="选择检查指标"
             style={{ width: 250 }}
+            showSearch
             onChange={(v) => setSelectedItem(v)}
-            options={mockItems.map(i => ({ value: i.name, label: `${i.name} (${i.unit})` }))}
+            options={trackableItems.map((i: any) => ({
+              value: i.name,
+              label: `${i.name}${i.unit ? ` (${i.unit})` : ''}`,
+            }))}
           />
           <DatePicker.RangePicker />
         </div>
 
-        {selectedItem ? (
-          <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafafa', borderRadius: 8 }}>
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 16, color: '#666' }}>📈 {selectedItem} 趋势图</p>
-              <p style={{ color: '#999' }}>接入真实数据后将在此展示 ECharts 趋势曲线</p>
-              <p style={{ color: '#999' }}>包含参考范围区间、异常值标记等</p>
-            </div>
-          </div>
+        {loading && <Spin style={{ display: 'block', margin: '60px auto' }} />}
+
+        {!loading && selectedItem ? (
+          <div ref={chartRef} style={{ height: 400, width: '100%' }} />
         ) : (
-          <Empty description="请选择一个检查指标查看趋势" style={{ padding: 60 }} />
+          !loading && <Empty description="请选择一个检查指标查看趋势" style={{ padding: 60 }} />
         )}
       </Card>
     </div>

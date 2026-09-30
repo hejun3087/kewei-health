@@ -117,6 +117,11 @@ export class AuthService {
 
   private sanitizeUser(user: any) {
     const { password, ...result } = user;
-    return result;
+    // BigInt 转 String，避免 JSON 序列化报错
+    return {
+      ...result,
+      storageUsed: result.storageUsed?.toString() || '0',
+      storageLimit: result.storageLimit?.toString() || '1073741824',
+    };
   }
 }

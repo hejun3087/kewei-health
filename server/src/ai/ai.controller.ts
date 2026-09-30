@@ -11,12 +11,12 @@ export class AiController {
   constructor(private aiService: AiService) {}
 
   @Post('recognize')
-  @ApiOperation({ summary: 'AI识别医疗报告图片' })
-  async recognize(@Body() body: { imagePath: string; type?: 'report' | 'prescription' }) {
+  @ApiOperation({ summary: 'AI识别医疗报告图片（基于上传记录ID）' })
+  async recognize(
+    @Request() req,
+    @Body() body: { uploadId: string; type?: 'report' | 'prescription' },
+  ) {
     const type = body.type || 'report';
-    if (type === 'prescription') {
-      return this.aiService.recognizePrescription(body.imagePath);
-    }
-    return this.aiService.recognizeMedicalReport(body.imagePath);
+    return this.aiService.recognizeByUpload(body.uploadId, req.user.userId, type);
   }
 }
