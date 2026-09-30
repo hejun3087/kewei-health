@@ -54,6 +54,33 @@ export class DiagnosisService {
     return diagnosis;
   }
 
+  // 复诊预警：未来 N 天内到期 + 近 30 天已逾期的就诊提醒
+  async getUpcomingVisits(userId: string, days = 7) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const upper = new Date(today);
+    upper.setDate(upper.getDate() + days);
+    const lower = new Date(today);
+    lower.setDate(lower.getDate() - 30); // 逾期一个月的也提醒（补录/遗忘场景）
+
+    const list = await this.prisma.diagnosis.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        nextVisitDate: { gte: lower, lte: upper },
+      },
+      include: { member: true },
+      orderBy: { nextVisitDate: 'asc' },
+    });
+
+    return list.map((d: any) => {
+      const diffDays = Math.round(
+        (new Date(d.nextVisitDate).getTime() - today.getTime()) / 86400000,
+      );
+      return { ...d, daysLeft: diffDays, overdue: diffDays < 0 };
+    });
+  }
+
   // 创建诊断记录（AI识别后保存）
   async create(userId: string, data: any) {
     const { images, ...diagnosisData } = data;

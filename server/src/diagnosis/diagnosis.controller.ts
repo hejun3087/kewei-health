@@ -16,6 +16,14 @@ export class DiagnosisController {
     return this.diagnosisService.findAll(req.user.userId, query);
   }
 
+  // 注意：静态路由必须声明在 @Get(':id') 之前，否则会被参数路由误匹配
+  @Get('upcoming-visits')
+  @ApiOperation({ summary: '复诊提醒（未来 N 天内到期 + 近30天已逾期，默认7天）' })
+  upcomingVisits(@Request() req, @Query('days') days?: string) {
+    const d = days ? Number(days) : 7;
+    return this.diagnosisService.getUpcomingVisits(req.user.userId, Number.isFinite(d) ? d : 7);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '获取诊断详情' })
   findOne(@Request() req, @Param('id') id: string) {

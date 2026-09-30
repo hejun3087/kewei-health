@@ -1,0 +1,174 @@
+import { UnauthorizedException } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
+import { AuthService } from './auth.service';
+
+describe('AuthService', () => {
+  let prisma: any;
+  let jwtService: any;
+  let service: AuthService;
+
+  const baseUser = (overrides: any = {}) => ({
+    id: 'u1',
+    phone: '13800001234',
+    nickname: '测试用户',
+    status: 'ACTIVE',
+    storageUsed: BigInt(1024),
+    storageLimit: BigInt(1073741824),
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    prisma = {
+      user: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+      },
+      familyMember: {
+        create: jest.fn(),
+      },
+    };
+    jwtService = { sign: jest.fn().mockReturnValue('fake-jwt-token') };
+    service = new AuthService(prisma, jwtService);
+  });
+
+  describe('loginByPhone', () => {
+    it('新用户：自动注册 + 创建默认家庭成员（本人）+ 签发 token', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(baseUser({ password: null }));
+
+      const res = await service.loginByPhone('13800001234');
+
+      expect(prisma.user.create).toHaveBeenCalled();
+      expect(prisma.familyMember.create.mock.calls[0][0].data).toMatchObject({
+        userId: 'u1',
+        relation: 'SELF',
+        isDefault: true,
+      });
+      expect(res.token).toBe('fake-jwt-token');
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'u1', phone: '13800001234' });
+    });
+
+    it('老用户：不重复注册，直接签发 token', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser());
+
+      const res = await service.loginByPhone('13800001234');
+
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.familyMember.create).not.toHaveBeenCalled();
+      expect(res.token).toBe('fake-jwt-token');
+    });
+  });
+
+  describe('loginByPassword', () => {
+    it('密码正确：签发 token 且返回用户不含 password 字段', async () => {
+      const hash = await bcrypt.hash('secret123', 10);
+      prisma.user.findUnique.mockResolvedValue(baseUser({ password: hash }));
+
+      const res = await service.loginByPassword('13800001234', 'secret123');
+
+      expect(res.token).toBe('fake-jwt-token');
+      expect(res.user).not.toHaveProperty('password');
+    });
+
+    it('用户不存在与密码错误返回同一提示（不泄露账号是否存在）', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.loginByPassword('13800001234', 'x')).rejects.toThrow('手机号或密码错误');
+
+      const hash = await bcrypt.hash('right-pass', 10);
+      prisma.user.findUnique.mockResolvedValue(baseUser({ password: hash }));
+      await expect(service.loginByPassword('13800001234', 'wrong')).rejects.toThrow('手机号或密码错误');
+    });
+
+    it('未设置密码的账号（手机号快捷注册）不能密码登录', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser({ password: null }));
+      await expect(service.loginByPassword('13800001234', 'anything')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe('register', () => {
+    it('手机号已注册时抛 401', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser());
+      await expect(service.register('13800001234', 'pass')).rejects.toThrow('该手机号已注册');
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('成功注册：密码以 bcrypt hash 存储（非明文）+ 默认家庭成员', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(baseUser());
+
+      const res = await service.register('13800001234', 'plain-pass', '小明');
+
+      const created = prisma.user.create.mock.calls[0][0].data;
+      expect(created.password).not.toBe('plain-pass');
+      expect(await bcrypt.compare('plain-pass', created.password)).toBe(true);
+      expect(created.nickname).toBe('小明');
+      expect(prisma.familyMember.create).toHaveBeenCalled();
+      expect(res.user.nickname).toBe('测试用户');
+    });
+
+    it('未填昵称时自动生成"用户+尾号4位"', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(baseUser());
+
+      await service.register('1380005678', 'pass');
+
+      expect(prisma.user.create.mock.calls[0][0].data.nickname).toBe('用户5678');
+    });
+  });
+
+  describe('loginByWechat', () => {
+    it('新用户：以 wx_openId 占位手机号创建 + token payload 仅含 sub', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(baseUser({ phone: 'wx_abc123' }));
+
+      const res = await service.loginByWechat('abc123', 'union-1');
+
+      const data = prisma.user.create.mock.calls[0][0].data;
+      expect(data).toMatchObject({ wxOpenId: 'abc123', wxUnionId: 'union-1', phone: 'wx_abc123' });
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'u1' });
+      expect(res.token).toBe('fake-jwt-token');
+    });
+
+    it('老用户直接登录，不重复建档', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser());
+
+      await service.loginByWechat('abc123');
+
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.familyMember.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('validateUser', () => {
+    it('ACTIVE 用户通过且剥离 password', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser({ password: 'hash' }));
+
+      const user = await service.validateUser('u1');
+
+      expect(user).not.toHaveProperty('password');
+      expect(user.status).toBe('ACTIVE');
+    });
+
+    it('用户不存在或被禁用（非 ACTIVE）均抛 401', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.validateUser('ghost')).rejects.toThrow(UnauthorizedException);
+
+      prisma.user.findUnique.mockResolvedValue(baseUser({ status: 'BANNED' }));
+      await expect(service.validateUser('u1')).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('sanitizeUser（BigInt 序列化契约）', () => {
+    it('storageUsed/storageLimit BigInt 转 string，避免 JSON 序列化崩溃', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser());
+
+      const res = await service.loginByPhone('13800001234');
+
+      expect(res.user.storageUsed).toBe('1024');
+      expect(res.user.storageLimit).toBe('1073741824');
+      expect(() => JSON.stringify(res.user)).not.toThrow();
+    });
+  });
+});

@@ -59,6 +59,57 @@ describe('DiagnosisService', () => {
     });
   });
 
+  describe('getUpcomingVisits（复诊预警）', () => {
+    const dayStart = () => {
+      const n = new Date();
+      return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    };
+    const offsetDays = (d: number) => {
+      const x = dayStart();
+      x.setDate(x.getDate() + d);
+      return x;
+    };
+
+    it('查询窗口：[今-30天, 今+days]，附 member 并按日期升序', async () => {
+      prisma.diagnosis.findMany.mockResolvedValue([]);
+
+      await service.getUpcomingVisits(USER_ID, 7);
+
+      const arg = prisma.diagnosis.findMany.mock.calls[0][0];
+      expect(arg.where.userId).toBe(USER_ID);
+      expect(arg.where.deletedAt).toBeNull();
+      expect(arg.where.nextVisitDate.gte).toEqual(offsetDays(-30));
+      expect(arg.where.nextVisitDate.lte).toEqual(offsetDays(7));
+      expect(arg.include).toHaveProperty('member');
+      expect(arg.orderBy).toEqual({ nextVisitDate: 'asc' });
+    });
+
+    it('返回 daysLeft/overdue：逾期为负数标记，将到期为正数', async () => {
+      prisma.diagnosis.findMany.mockResolvedValue([
+        { id: 'd1', nextVisitDate: offsetDays(-5), member: {} },
+        { id: 'd2', nextVisitDate: dayStart(), member: {} },
+        { id: 'd3', nextVisitDate: offsetDays(3), member: {} },
+      ]);
+
+      const res = await service.getUpcomingVisits(USER_ID, 7);
+
+      expect(res[0].daysLeft).toBe(-5);
+      expect(res[0].overdue).toBe(true);
+      expect(res[1].daysLeft).toBe(0);
+      expect(res[1].overdue).toBe(false); // 今天到期不算逾期
+      expect(res[2].daysLeft).toBe(3);
+      expect(res[2].overdue).toBe(false);
+    });
+
+    it('默认提醒窗口 7 天', async () => {
+      prisma.diagnosis.findMany.mockResolvedValue([]);
+
+      await service.getUpcomingVisits(USER_ID);
+
+      expect(prisma.diagnosis.findMany.mock.calls[0][0].where.nextVisitDate.lte).toEqual(offsetDays(7));
+    });
+  });
+
   describe('create', () => {
     it('visitDate 转 Date，nextVisitDate 缺省时为 undefined，images 嵌套 create', async () => {
       prisma.diagnosis.create.mockResolvedValue({ id: 'd1' });
