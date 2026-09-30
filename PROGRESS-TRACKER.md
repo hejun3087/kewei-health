@@ -57,10 +57,10 @@
 | 1.3.1 | Docker + Docker Compose配置 | ✅ | 第4周 | 已完成 | monorepo 感知的多阶段构建（根 lock + workspaces），启动自动 migrate deploy |
 | 1.3.2 | Nginx配置 | ✅ | 第4周 | 已完成 | 反向代理 + 安全头 + /uploads 静态 + /health 探活转发（配置已落地，尚未部署至真实云主机） |
 | 1.3.3 | CI/CD流水线（GitHub Actions） | ✅ | 第4周 | 已完成 | .github/workflows/ci.yml：三端构建+后端单测，master 额外验证 Docker 镜像构建（未接部署推送） |
-| 1.3.4 | 后端单元测试（AI生成） | 🔄 | 第4周 | | Jest+ts-jest 基建已通，member 核心链路 11 用例全过；其余模块待补 |
+| 1.3.4 | 后端单元测试（AI生成） | 🔄 | 第4周 | | Jest 基建已通；member/report/diagnosis/medication 四 service 共 39 用例全过；ai/auth 等待补 |
 | 1.3.5 | API接口联调自测 | ✅ | 第4周 | 已完成 | e2e-test.ps1 回归脚本，发现并修复4处前后端契约bug |
 | 1.3.6 | 性能优化（索引、缓存） | 🔄 | 第5周 | | 前端拆包已完成：manualChunks（react/antd/echarts/utils）+ 路由级懒加载，主包 2350KB→17KB；Redis缓存待接 |
-| 1.3.7 | 安全加固 | ⏳ | 第5周 | | 限流、防注入、CORS |
+| 1.3.7 | 安全加固 | ✅ | 第5周 | 已完成 | @nestjs/throttler 全局限流 60/min；登录注册 5/min、AI识别 10/min、上传 20/min、探活豁免（实测 429 生效）；CORS 环境变量化；防注入由 Prisma 参数化保障 |
 
 **第一阶段里程碑**
 - [ ] 公司营业执照到手
@@ -112,7 +112,7 @@
 |---|------|------|---------|---------|------|
 | 2.4.1 | 付费墙弹窗（超出额度引导升级） | ✅ | 第9周 | 已完成 | 后端拦截改抛 402；Web Modal 引导 + 小程序 showModal 跳转会员中心，防重复弹窗 |
 | 2.4.2 | 空状态引导页 | 🔄 | 第9周 | | Web 列表空态已接 EmptyGuide 行动引导（报告/用药/就诊）；新用户首次使用引导待补 |
-| 2.4.3 | 错误处理 + 加载状态 | ⏳ | 第9周 | | 全局错误边界 + Loading |
+| 2.4.3 | 错误处理 + 加载状态 | ✅ | 第9周 | 已完成 | 全局 ErrorBoundary（500 兜底可刷新/回首页）+ 404 页（保留导航框架）；路由切换 Loading 由 Suspense fallback 覆盖 |
 | 2.4.4 | 响应式适配 | ⏳ | 第9周 | | 适配不同屏幕尺寸 |
 | 2.4.5 | 前端单元测试（AI生成） | ⏳ | 第9周 | | 用AI批量生成 |
 | 2.4.6 | 前后端联调 | ✅ | 第9周 | 已完成 | 方向2回归验证，修复4处契约bug（items/date/search） |
@@ -340,14 +340,14 @@
 
 | 阶段 | 总任务数 | 已完成 | 进行中 | 待开始 | 完成率 |
 |------|---------|--------|--------|--------|--------|
-| 第一阶段：行政+后端 | 29 | 16 | 2 | 11 | 55% |
-| 第二阶段：Web前端 | 23 | 19 | 1 | 3 | 83% |
+| 第一阶段：行政+后端 | 29 | 17 | 2 | 10 | 59% |
+| 第二阶段：Web前端 | 23 | 20 | 1 | 2 | 87% |
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
 | 第四阶段：AI+功能 | 16 | 3 | 2 | 11 | 19% |
 | 第五阶段：测试 | 15 | 1 | 1 | 13 | 7% |
 | 第六阶段：合规上线 | 16 | 0 | 0 | 16 | 0% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **52** | **7** | **66** | **42%** |
+| **合计** | **125** | **54** | **7** | **64** | **43%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -376,3 +376,4 @@
 | 2026-09-30 | Web端补齐 + 云部署配置：①新增 DiagnosisDetail 独立详情页（关联报告/用药联动）；②订阅订单历史（新增 PaymentOrder 表+迁移、/member/orders、Membership 订单表格，下单PENDING→激活PAID 链路验证通过）；③重写 Dockerfile（monorepo 多阶段）+ docker-compose（healthcheck/AI适配）+ nginx（/health/uploads）+ .dockerignore，后端新增 /api/health 探活、uploads 静态托管、CORS_ORIGINS；修复 workspaces vite 版本冲突（根 overrides）使三端构建恢复通过。总进度 37%→40% | JackHe |
 | 2026-09-30 | CI/CD + 付费墙闭环 + 后端单测：①新增 GitHub Actions 流水线（三端构建+单测，master 验证 Docker 镜像）；②付费墙：后端拦截改抛 402（HttpException PAYMENT_REQUIRED），Web Modal/小程序 showModal 双端引导升级；③Jest+ts-jest 基建，member.service 11 用例全过（配额/付费墙/订单落库/激活/契约），tsconfig.build.json 排除 spec。总进度 40%→42% | JackHe |
 | 2026-09-30 | CI 首跑验证闭环：build job 一次通过；Docker job 暴露 workspaces 坑（npm ci 不生成 server/node_modules）→ prod-deps 改整仓 --omit=dev + 显式 prisma generate + mkdir 兼容，第二轮全绿。另：Web 三列表页接入 EmptyGuide 空态行动引导（2.4.2 启动）；前端性能优化（1.3.6 启动）：manualChunks 四分包 + App 路由级 React.lazy，主包 2350KB→17KB | JackHe |
+| 2026-09-30 | 安全加固+单测扩展+错误处理：①1.3.7 ✅ @nestjs/throttler 全局限流（登录 5/min、AI 10/min、上传 20/min、探活豁免，实测第 6 次请求返回 429）；②1.3.4 扩展 report/diagnosis/medication 三 service 共 28 新用例，39/39 全过，test 脚本固化 --runInBand 规避 worker 内存崩溃；③2.4.3 ✅ 全局 ErrorBoundary + 404 页。总进度 42%→43% | JackHe |

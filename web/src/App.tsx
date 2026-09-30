@@ -16,6 +16,7 @@ const TrendPage = lazy(() => import('./pages/Trend'));
 const UploadPage = lazy(() => import('./pages/Upload'));
 const ProfilePage = lazy(() => import('./pages/Profile'));
 const MembershipPage = lazy(() => import('./pages/Membership'));
+const NotFoundPage = lazy(() => import('./pages/NotFound'));
 
 function App() {
   const { token, loading } = useAuth();
@@ -51,9 +52,10 @@ function App() {
           <Route path="upload" element={<UploadPage />} />
           <Route path="membership" element={<MembershipPage />} />
           <Route path="profile" element={<ProfilePage />} />
+          {/* 404（2.4.3）：未登录已重定向，此处为登录后访问不存在路由，保留导航框架 */}
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
         <Route path="/login" element={<Navigate to="/" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { AuthProvider } from './contexts/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import App from './App';
 import './index.css';
 
@@ -20,7 +21,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     >
       <BrowserRouter>
         <AuthProvider>
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>
     </ConfigProvider>

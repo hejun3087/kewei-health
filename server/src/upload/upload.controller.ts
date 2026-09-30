@@ -1,4 +1,5 @@
 import { Controller, Post, Get, UseGuards, Request, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { UploadService } from './upload.service';
@@ -11,6 +12,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class UploadController {
   constructor(private uploadService: UploadService) {}
 
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 限制上传频率：每 IP 20 次/分钟
   @Post()
   @ApiOperation({ summary: '上传图片' })
   @ApiConsumes('multipart/form-data')
