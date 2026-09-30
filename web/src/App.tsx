@@ -1,18 +1,21 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Spin } from 'antd';
 import { useAuth } from './contexts/AuthContext';
 import MainLayout from './layouts/MainLayout';
 import LoginPage from './pages/Login';
-import HomePage from './pages/Home';
-import ReportsPage from './pages/Reports';
-import ReportDetailPage from './pages/ReportDetail';
-import DiagnosesPage from './pages/Diagnoses';
-import DiagnosisDetailPage from './pages/DiagnosisDetail';
-import MedicationsPage from './pages/Medications';
-import TrendPage from './pages/Trend';
-import UploadPage from './pages/Upload';
-import ProfilePage from './pages/Profile';
-import MembershipPage from './pages/Membership';
+
+// 性能优化（1.3.6）：路由级懒加载，首屏只加载 Login/Home，其余页面按需拆包
+const HomePage = lazy(() => import('./pages/Home'));
+const ReportsPage = lazy(() => import('./pages/Reports'));
+const ReportDetailPage = lazy(() => import('./pages/ReportDetail'));
+const DiagnosesPage = lazy(() => import('./pages/Diagnoses'));
+const DiagnosisDetailPage = lazy(() => import('./pages/DiagnosisDetail'));
+const MedicationsPage = lazy(() => import('./pages/Medications'));
+const TrendPage = lazy(() => import('./pages/Trend'));
+const UploadPage = lazy(() => import('./pages/Upload'));
+const ProfilePage = lazy(() => import('./pages/Profile'));
+const MembershipPage = lazy(() => import('./pages/Membership'));
 
 function App() {
   const { token, loading } = useAuth();
@@ -35,22 +38,24 @@ function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<MainLayout />}>
-        <Route index element={<HomePage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="reports/:id" element={<ReportDetailPage />} />
-        <Route path="diagnoses" element={<DiagnosesPage />} />
-        <Route path="diagnoses/:id" element={<DiagnosisDetailPage />} />
-        <Route path="medications" element={<MedicationsPage />} />
-        <Route path="trend" element={<TrendPage />} />
-        <Route path="upload" element={<UploadPage />} />
-        <Route path="membership" element={<MembershipPage />} />
-        <Route path="profile" element={<ProfilePage />} />
-      </Route>
-      <Route path="/login" element={<Navigate to="/" replace />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <Suspense fallback={<div style={{ padding: 48, textAlign: 'center' }}><Spin size="large" /></div>}>
+      <Routes>
+        <Route path="/" element={<MainLayout />}>
+          <Route index element={<HomePage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="reports/:id" element={<ReportDetailPage />} />
+          <Route path="diagnoses" element={<DiagnosesPage />} />
+          <Route path="diagnoses/:id" element={<DiagnosisDetailPage />} />
+          <Route path="medications" element={<MedicationsPage />} />
+          <Route path="trend" element={<TrendPage />} />
+          <Route path="upload" element={<UploadPage />} />
+          <Route path="membership" element={<MembershipPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+        </Route>
+        <Route path="/login" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 

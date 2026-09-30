@@ -9,6 +9,20 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // 性能优化（1.3.6）：拆分大型依赖，避免单 chunk 超 2MB，提升浏览器缓存命中率
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-antd': ['antd', '@ant-design/icons'],
+          'vendor-echarts': ['echarts', 'echarts-for-react'],
+          'vendor-utils': ['axios', 'dayjs'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

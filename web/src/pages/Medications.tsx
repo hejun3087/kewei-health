@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Table, Tag, Tabs, Button, Space, Modal, Form, Input, DatePicker, Select, message } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from '../utils/api';
+import EmptyGuide from '../components/EmptyGuide';
 
 const drugCategoryOptions = [
   { value: 'WESTERN', label: '西药' },
@@ -95,12 +96,12 @@ export default function MedicationsPage() {
         {
           key: 'current',
           label: `当前用药 (${current.length})`,
-          children: <Table dataSource={current} columns={columns} rowKey="id" loading={loading} pagination={false} />,
+          children: <Table dataSource={current} columns={columns} rowKey="id" loading={loading} pagination={false} locale={{ emptyText: <EmptyGuide description="当前没有在用的药物，添加用药记录后可自动跟踪疗程" actionText="添加用药" onAction={() => setModalOpen(true)} /> }} />,
         },
         {
           key: 'history',
           label: `历史用药 (${history.length})`,
-          children: <Table dataSource={history} columns={columns} rowKey="id" loading={loading} />,
+          children: <Table dataSource={history} columns={columns} rowKey="id" loading={loading} locale={{ emptyText: <EmptyGuide description="暂无历史用药记录" actionText="添加用药" onAction={() => setModalOpen(true)} /> }} />,
         },
       ]} />
 

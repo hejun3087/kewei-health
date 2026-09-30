@@ -59,7 +59,7 @@
 | 1.3.3 | CI/CD流水线（GitHub Actions） | ✅ | 第4周 | 已完成 | .github/workflows/ci.yml：三端构建+后端单测，master 额外验证 Docker 镜像构建（未接部署推送） |
 | 1.3.4 | 后端单元测试（AI生成） | 🔄 | 第4周 | | Jest+ts-jest 基建已通，member 核心链路 11 用例全过；其余模块待补 |
 | 1.3.5 | API接口联调自测 | ✅ | 第4周 | 已完成 | e2e-test.ps1 回归脚本，发现并修复4处前后端契约bug |
-| 1.3.6 | 性能优化（索引、缓存） | ⏳ | 第5周 | | 数据库索引 + Redis缓存 |
+| 1.3.6 | 性能优化（索引、缓存） | 🔄 | 第5周 | | 前端拆包已完成：manualChunks（react/antd/echarts/utils）+ 路由级懒加载，主包 2350KB→17KB；Redis缓存待接 |
 | 1.3.7 | 安全加固 | ⏳ | 第5周 | | 限流、防注入、CORS |
 
 **第一阶段里程碑**
@@ -111,7 +111,7 @@
 | # | 任务 | 状态 | 计划完成 | 实际完成 | 备注 |
 |---|------|------|---------|---------|------|
 | 2.4.1 | 付费墙弹窗（超出额度引导升级） | ✅ | 第9周 | 已完成 | 后端拦截改抛 402；Web Modal 引导 + 小程序 showModal 跳转会员中心，防重复弹窗 |
-| 2.4.2 | 空状态引导页 | ⏳ | 第9周 | | 新用户首次使用引导 |
+| 2.4.2 | 空状态引导页 | 🔄 | 第9周 | | Web 列表空态已接 EmptyGuide 行动引导（报告/用药/就诊）；新用户首次使用引导待补 |
 | 2.4.3 | 错误处理 + 加载状态 | ⏳ | 第9周 | | 全局错误边界 + Loading |
 | 2.4.4 | 响应式适配 | ⏳ | 第9周 | | 适配不同屏幕尺寸 |
 | 2.4.5 | 前端单元测试（AI生成） | ⏳ | 第9周 | | 用AI批量生成 |
@@ -340,14 +340,14 @@
 
 | 阶段 | 总任务数 | 已完成 | 进行中 | 待开始 | 完成率 |
 |------|---------|--------|--------|--------|--------|
-| 第一阶段：行政+后端 | 29 | 16 | 1 | 12 | 55% |
-| 第二阶段：Web前端 | 23 | 19 | 0 | 4 | 83% |
+| 第一阶段：行政+后端 | 29 | 16 | 2 | 11 | 55% |
+| 第二阶段：Web前端 | 23 | 19 | 1 | 3 | 83% |
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
 | 第四阶段：AI+功能 | 16 | 3 | 2 | 11 | 19% |
 | 第五阶段：测试 | 15 | 1 | 1 | 13 | 7% |
 | 第六阶段：合规上线 | 16 | 0 | 0 | 16 | 0% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **52** | **5** | **68** | **42%** |
+| **合计** | **125** | **52** | **7** | **66** | **42%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -375,3 +375,4 @@
 | 2026-09-30 | TabBar 图标补齐：新增 scripts/gen-tabbar-icons.ps1（System.Drawing 绘制 81x81 灰/蓝双态 8 图），pages.json 配置 iconPath，重新编译产物验证通过 | JackHe |
 | 2026-09-30 | Web端补齐 + 云部署配置：①新增 DiagnosisDetail 独立详情页（关联报告/用药联动）；②订阅订单历史（新增 PaymentOrder 表+迁移、/member/orders、Membership 订单表格，下单PENDING→激活PAID 链路验证通过）；③重写 Dockerfile（monorepo 多阶段）+ docker-compose（healthcheck/AI适配）+ nginx（/health/uploads）+ .dockerignore，后端新增 /api/health 探活、uploads 静态托管、CORS_ORIGINS；修复 workspaces vite 版本冲突（根 overrides）使三端构建恢复通过。总进度 37%→40% | JackHe |
 | 2026-09-30 | CI/CD + 付费墙闭环 + 后端单测：①新增 GitHub Actions 流水线（三端构建+单测，master 验证 Docker 镜像）；②付费墙：后端拦截改抛 402（HttpException PAYMENT_REQUIRED），Web Modal/小程序 showModal 双端引导升级；③Jest+ts-jest 基建，member.service 11 用例全过（配额/付费墙/订单落库/激活/契约），tsconfig.build.json 排除 spec。总进度 40%→42% | JackHe |
+| 2026-09-30 | CI 首跑验证闭环：build job 一次通过；Docker job 暴露 workspaces 坑（npm ci 不生成 server/node_modules）→ prod-deps 改整仓 --omit=dev + 显式 prisma generate + mkdir 兼容，第二轮全绿。另：Web 三列表页接入 EmptyGuide 空态行动引导（2.4.2 启动）；前端性能优化（1.3.6 启动）：manualChunks 四分包 + App 路由级 React.lazy，主包 2350KB→17KB | JackHe |
