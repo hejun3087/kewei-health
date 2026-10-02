@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppCacheService } from '../common/app-cache.service';
 
 @Injectable()
 export class ReportService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    // 可选注入：单元测试直接 new ReportService(prisma) 时 cache 为 undefined，走无缓存分支
+    @Optional() private cache?: AppCacheService,
+  ) {}
 
   // 获取报告列表（时间线）
   async findAll(userId: string, query: {
@@ -65,7 +70,7 @@ export class ReportService {
   async create(userId: string, data: any) {
     const { items, images, ...reportData } = data;
 
-    return this.prisma.report.create({
+    const created = await this.prisma.report.create({
       data: {
         userId,
         ...reportData,
@@ -75,6 +80,8 @@ export class ReportService {
       },
       include: { items: true, images: true },
     });
+    await this.cache?.bump(userId); // 写后失效：趋势/概览缓存版本+1
+    return created;
   }
 
   // 更新报告
@@ -87,7 +94,7 @@ export class ReportService {
       await this.prisma.reportItem.deleteMany({ where: { reportId } });
     }
 
-    return this.prisma.report.update({
+    const updated = await this.prisma.report.update({
       where: { id: reportId },
       data: {
         ...reportData,
@@ -96,19 +103,33 @@ export class ReportService {
       },
       include: { items: true, images: true },
     });
+    await this.cache?.bump(userId);
+    return updated;
   }
 
   // 软删除报告
   async remove(userId: string, reportId: string) {
     await this.findOne(userId, reportId);
-    return this.prisma.report.update({
+    const removed = await this.prisma.report.update({
       where: { id: reportId },
       data: { deletedAt: new Date() },
     });
+    await this.cache?.bump(userId);
+    return removed;
   }
 
-  // 获取指标趋势数据
+  // 获取指标趋势数据（读多写少，接入缓存）
   async getTrend(userId: string, query: {
+    memberId: string;
+    itemName: string;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    if (!this.cache) return this.computeTrend(userId, query);
+    return this.cache.getOrSet('trend', userId, query, () => this.computeTrend(userId, query));
+  }
+
+  private async computeTrend(userId: string, query: {
     memberId: string;
     itemName: string;
     startDate?: string;
@@ -198,8 +219,15 @@ export class ReportService {
     });
   }
 
-  // 获取首页概览
+  // 获取首页概览（读多写少，接入缓存）
   async getDashboard(userId: string, memberId: string) {
+    if (!this.cache) return this.computeDashboard(userId, memberId);
+    return this.cache.getOrSet('dashboard', userId, { memberId }, () =>
+      this.computeDashboard(userId, memberId),
+    );
+  }
+
+  private async computeDashboard(userId: string, memberId: string) {
     const [recentReports, totalReports, trackableItems] = await Promise.all([
       // 最近5条记录
       this.prisma.report.findMany({

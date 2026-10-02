@@ -186,4 +186,71 @@ describe('ReportService', () => {
       expect(arg.take).toBe(50);
     });
   });
+
+  describe('缓存接入（1.3.6）', () => {
+    let cache: any;
+    let cachedService: ReportService;
+
+    beforeEach(() => {
+      // getOrSet 透传执行 loader，模拟未命中回填
+      cache = {
+        getOrSet: jest.fn((ns: string, userId: string, params: any, loader: () => any) =>
+          loader(),
+        ),
+        bump: jest.fn(),
+      };
+      cachedService = new ReportService(prisma, cache);
+    });
+
+    it('getTrend 走 cache.getOrSet，命名空间 trend 且透传查询参数', async () => {
+      prisma.report.findMany.mockResolvedValue([]);
+      const query = { memberId: 'm1', itemName: '白细胞' };
+
+      await cachedService.getTrend(USER_ID, query);
+
+      expect(cache.getOrSet).toHaveBeenCalledWith(
+        'trend',
+        USER_ID,
+        query,
+        expect.any(Function),
+      );
+    });
+
+    it('getDashboard 走 cache.getOrSet，命名空间 dashboard', async () => {
+      prisma.report.findMany.mockResolvedValue([]);
+      prisma.report.count.mockResolvedValue(0);
+      prisma.reportItem.findMany.mockResolvedValue([]);
+      prisma.reportItem.groupBy.mockResolvedValue([]);
+
+      await cachedService.getDashboard(USER_ID, 'm1');
+
+      expect(cache.getOrSet).toHaveBeenCalledWith(
+        'dashboard',
+        USER_ID,
+        { memberId: 'm1' },
+        expect.any(Function),
+      );
+    });
+
+    it('create/update/remove 后 bump 用户缓存版本', async () => {
+      prisma.report.create.mockResolvedValue({ id: 'r1' });
+      prisma.report.findFirst.mockResolvedValue({ id: 'r1' }); // 归属校验通过
+      prisma.report.update.mockResolvedValue({ id: 'r1' });
+
+      await cachedService.create(USER_ID, { reportDate: '2026-01-01' });
+      expect(cache.bump).toHaveBeenCalledWith(USER_ID);
+
+      await cachedService.update(USER_ID, 'r1', { summary: 'x' });
+      expect(cache.bump).toHaveBeenCalledTimes(2);
+
+      await cachedService.remove(USER_ID, 'r1');
+      expect(cache.bump).toHaveBeenCalledTimes(3);
+    });
+
+    it('无 cache 注入时降级直连（向后兼容既有调用）', async () => {
+      prisma.report.findMany.mockResolvedValue([]);
+      // service 构造时未传 cache
+      await expect(service.getTrend(USER_ID, { memberId: 'm1', itemName: 'x' })).resolves.toEqual([]);
+    });
+  });
 });

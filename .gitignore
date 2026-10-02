@@ -27,7 +27,7 @@ data/
 npm-debug.log*
 
 # 测试临时输出
-server/jest-*.txt
+server/jest*.txt
 web_build.txt
 
 # OS

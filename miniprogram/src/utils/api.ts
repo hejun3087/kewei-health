@@ -54,6 +54,10 @@ export const diagnosisApi = {
   create: (data: any) => http.post('/diagnoses', data),
   update: (id: string, data: any) => http.put(`/diagnoses/${id}`, data),
   remove: (id: string) => http.del(`/diagnoses/${id}`),
+  // 复诊提醒：逾期(近30天) + 未来 N 天内到期，含 daysLeft/overdue 标记
+  upcomingVisits: (days = 7) =>
+    http.get<any>('/diagnoses/upcoming-visits', { days }).then((res: any) =>
+      Array.isArray(res) ? res : res?.items || []),
 };
 
 // ==================== 用药记录 ====================

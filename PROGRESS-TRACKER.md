@@ -59,7 +59,7 @@
 | 1.3.3 | CI/CD流水线（GitHub Actions） | ✅ | 第4周 | 已完成 | .github/workflows/ci.yml：三端构建+后端单测，master 额外验证 Docker 镜像构建（未接部署推送） |
 | 1.3.4 | 后端单元测试（AI生成） | ✅ | 第4周 | 已完成 | 6 大核心 service（member/report/diagnosis/medication/auth/ai）共 63 用例全过；CI 每次 push 自动执行；user/family-member 等简单 CRUD 按需补 |
 | 1.3.5 | API接口联调自测 | ✅ | 第4周 | 已完成 | e2e-test.ps1 回归脚本，发现并修复4处前后端契约bug |
-| 1.3.6 | 性能优化（索引、缓存） | 🔄 | 第5周 | | 前端拆包已完成：manualChunks（react/antd/echarts/utils）+ 路由级懒加载，主包 2350KB→17KB；Redis缓存待接 |
+| 1.3.6 | 性能优化（索引、缓存） | ✅ | 第5周 | 已完成 | 前端拆包：manualChunks（react/antd/echarts/utils）+ 路由级懒加载，主包 2350KB→17KB；缓存：@nestjs/cache-manager 封装 AppCacheService（内存 store 起步，接口预留切 Redis 代码不变），趋势/首页概览 getOrSet 命中缓存 + 版本号失效（写操作 bump），67/67 单测通过 |
 | 1.3.7 | 安全加固 | ✅ | 第5周 | 已完成 | @nestjs/throttler 全局限流 60/min；登录注册 5/min、AI识别 10/min、上传 20/min、探活豁免（实测 429 生效）；CORS 环境变量化；防注入由 Prisma 参数化保障 |
 
 **第一阶段里程碑**
@@ -340,14 +340,14 @@
 
 | 阶段 | 总任务数 | 已完成 | 进行中 | 待开始 | 完成率 |
 |------|---------|--------|--------|--------|--------|
-| 第一阶段：行政+后端 | 29 | 18 | 1 | 10 | 62% |
+| 第一阶段：行政+后端 | 29 | 19 | 0 | 10 | 66% |
 | 第二阶段：Web前端 | 23 | 20 | 1 | 2 | 87% |
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
 | 第四阶段：AI+功能 | 16 | 3 | 3 | 10 | 19% |
 | 第五阶段：测试 | 15 | 1 | 1 | 13 | 7% |
 | 第六阶段：合规上线 | 16 | 0 | 0 | 16 | 0% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **55** | **7** | **63** | **44%** |
+| **合计** | **125** | **56** | **6** | **63** | **45%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -378,3 +378,4 @@
 | 2026-09-30 | CI 首跑验证闭环：build job 一次通过；Docker job 暴露 workspaces 坑（npm ci 不生成 server/node_modules）→ prod-deps 改整仓 --omit=dev + 显式 prisma generate + mkdir 兼容，第二轮全绿。另：Web 三列表页接入 EmptyGuide 空态行动引导（2.4.2 启动）；前端性能优化（1.3.6 启动）：manualChunks 四分包 + App 路由级 React.lazy，主包 2350KB→17KB | JackHe |
 | 2026-09-30 | 安全加固+单测扩展+错误处理：①1.3.7 ✅ @nestjs/throttler 全局限流（登录 5/min、AI 10/min、上传 20/min、探活豁免，实测第 6 次请求返回 429）；②1.3.4 扩展 report/diagnosis/medication 三 service 共 28 新用例，39/39 全过，test 脚本固化 --runInBand 规避 worker 内存崩溃；③2.4.3 ✅ 全局 ErrorBoundary + 404 页。总进度 42%→43% | JackHe |
 | 2026-09-30 | 单测收尾+复诊预警：①1.3.4 ✅ auth.service（13 用例：自动建档/密码 hash/401 不泄露账号存在性/BigInt 序列化）+ ai.service（8 用例：前置校验不白扣额度/402 中止不回写/降级策略/路径穿越防护），63/63 全过；②4.3.3 启动：新增 GET /diagnoses/upcoming-visits（逾期+未来 N 天，daysLeft/overdue 标记，含 3 新单测），Web 首页复诊提醒 Alert。总进度 43%→44% | JackHe |
+| 2026-09-30 | 小程序复诊提醒 + 缓存接入：①小程序首页新增复诊提醒条（复用 /diagnoses/upcoming-visits，逾期红/临期橙，点击跳就诊记录，build:mp-weixin 验证通过）；②1.3.6 ✅ @nestjs/cache-manager（内存 store 起步，预留 Redis 平滑切换）封装 AppCacheService，趋势/首页概览 getOrSet 缓存 + 版本号失效（写操作 bump），ReportService 可选注入向后兼容，新增 4 缓存单测，67/67 全过。三端构建均绿。总进度 44%→45% | JackHe |

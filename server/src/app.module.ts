@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
+import { AppCacheModule } from './common/cache.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
@@ -18,6 +19,7 @@ import { MemberModule } from './member/member.module';
     // 安全加固（1.3.7）：全局限流，默认每 IP 60 次/分钟；敏感接口用 @Throttle 收紧
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60000, limit: 60 }] }),
     PrismaModule,
+    AppCacheModule,
     HealthModule,
     AuthModule,
     UserModule,

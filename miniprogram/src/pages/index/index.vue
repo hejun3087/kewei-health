@@ -1,5 +1,19 @@
 <template>
   <view class="container">
+    <!-- 复诊提醒（逾期红/临期橙，点击跳就诊记录） -->
+    <view
+      v-if="upcomingVisits.length > 0"
+      class="card visit-alert"
+      :class="hasOverdue ? 'visit-alert-error' : 'visit-alert-warn'"
+      @tap="goDiagnoses"
+    >
+      <view class="visit-alert-title">🔔 复诊提醒（{{ upcomingVisits.length }} 项）</view>
+      <view v-for="v in upcomingVisits.slice(0, 2)" :key="v.id" class="visit-alert-item">
+        <text class="visit-alert-name">{{ (v.member && v.member.name ? v.member.name + ' · ' : '') + (v.hospital || '复诊') }} {{ (v.nextVisitDate || '').slice(0, 10) }}</text>
+        <text class="visit-alert-tag" :class="v.overdue ? 'tag-red' : 'tag-orange'">{{ v.overdue ? '已逾期' + (-v.daysLeft) + '天' : (v.daysLeft === 0 ? '今天' : v.daysLeft + '天后') }}</text>
+      </view>
+    </view>
+
     <!-- 健康概览 -->
     <view class="card">
       <view class="card-title">健康概览</view>
@@ -63,21 +77,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { reportApi, medicationApi } from '../../utils/api';
+import { reportApi, medicationApi, diagnosisApi } from '../../utils/api';
 
 const stats = ref({ totalReports: 0, currentMeds: 0, trackableItems: 0 });
 const recentReports = ref<any[]>([]);
+const upcomingVisits = ref<any[]>([]);
+const hasOverdue = computed(() => upcomingVisits.value.some((v: any) => v.overdue));
 
 const load = async () => {
   try {
-    const [dash, meds, track] = await Promise.all([
+    const [dash, meds, track, visits] = await Promise.all([
       reportApi.dashboard().catch(() => ({ totalReports: 0, recentReports: [] })),
       medicationApi.current().catch(() => []),
       reportApi.trackableItems().catch(() => []),
+      diagnosisApi.upcomingVisits(7).catch(() => []),
     ]);
     recentReports.value = dash?.recentReports || [];
+    upcomingVisits.value = Array.isArray(visits) ? visits : [];
     stats.value = {
       totalReports: dash?.totalReports || 0,
       currentMeds: Array.isArray(meds) ? meds.length : 0,
@@ -100,6 +118,15 @@ const goDetail = (id: string) => uni.navigateTo({ url: `/pages/reports/detail?id
 
 <style scoped>
 .stats-row { display: flex; justify-content: space-around; padding: 20rpx 0; }
+.visit-alert { border-left: 8rpx solid #faad14; }
+.visit-alert-error { border-left-color: #ff4d4f; background: #fff2f0; }
+.visit-alert-warn { border-left-color: #faad14; background: #fffbe6; }
+.visit-alert-title { font-size: 28rpx; font-weight: 600; color: #333; margin-bottom: 12rpx; }
+.visit-alert-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8rpx; }
+.visit-alert-name { font-size: 26rpx; color: #666; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.visit-alert-tag { font-size: 22rpx; margin-left: 16rpx; padding: 2rpx 12rpx; border-radius: 8rpx; }
+.tag-red { color: #ff4d4f; background: #fff1f0; }
+.tag-orange { color: #fa8c16; background: #fff7e6; }
 .stat-item { display: flex; flex-direction: column; align-items: center; }
 .stat-value { font-size: 48rpx; font-weight: 700; color: #1677ff; }
 .stat-label { font-size: 24rpx; color: #999; margin-top: 8rpx; }
