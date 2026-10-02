@@ -59,7 +59,7 @@
 | 1.3.3 | CI/CD流水线（GitHub Actions） | ✅ | 第4周 | 已完成 | .github/workflows/ci.yml：三端构建+后端单测，master 额外验证 Docker 镜像构建（未接部署推送） |
 | 1.3.4 | 后端单元测试（AI生成） | ✅ | 第4周 | 已完成 | 6 大核心 service（member/report/diagnosis/medication/auth/ai）共 63 用例全过；CI 每次 push 自动执行；user/family-member 等简单 CRUD 按需补 |
 | 1.3.5 | API接口联调自测 | ✅ | 第4周 | 已完成 | e2e-test.ps1 回归脚本，发现并修复4处前后端契约bug |
-| 1.3.6 | 性能优化（索引、缓存） | ✅ | 第5周 | 已完成 | 前端拆包：manualChunks（react/antd/echarts/utils）+ 路由级懒加载，主包 2350KB→17KB；缓存：@nestjs/cache-manager 封装 AppCacheService（内存 store 起步，接口预留切 Redis 代码不变），趋势/首页概览 getOrSet 命中缓存 + 版本号失效（写操作 bump），67/67 单测通过 |
+| 1.3.6 | 性能优化（索引、缓存） | ✅ | 第5周 | 已完成 | 前端拆包：manualChunks（react/antd/echarts/utils）+ 路由级懒加载，主包 2350KB→17KB；echarts 按需引入（echarts/core 只注册 LineChart+Grid/Tooltip+Canvas）并卸载未用的 echarts-for-react，vendor-echarts 降至 455KB(gzip 156KB)；缓存：@nestjs/cache-manager 封装 AppCacheService（内存 store 起步，接口预留切 Redis 代码不变），趋势/首页概览 getOrSet 命中缓存 + 版本号失效（写操作 bump），67/67 单测通过 |
 | 1.3.7 | 安全加固 | ✅ | 第5周 | 已完成 | @nestjs/throttler 全局限流 60/min；登录注册 5/min、AI识别 10/min、上传 20/min、探活豁免（实测 429 生效）；CORS 环境变量化；防注入由 Prisma 参数化保障 |
 
 **第一阶段里程碑**
@@ -196,7 +196,7 @@
 |---|------|------|---------|---------|------|
 | 4.3.1 | 数据导出功能（PDF/Excel） | ⏳ | 第15周 | | 标准版及以上可用 |
 | 4.3.2 | 报告分享功能 | ⏳ | 第15周 | | 生成分享链接（家庭版） |
-| 4.3.3 | 健康预警功能 | 🔄 | 第15周 | | 复诊提醒已完成：GET /diagnoses/upcoming-visits（逾期+未来N天，daysLeft/overdue 标记）+ Web 首页 Alert；指标异常推送待做 |
+| 4.3.3 | 健康预警功能 | 🔄 | 第15周 | | 复诊提醒已完成：GET /diagnoses/upcoming-visits（逾期+未来N天，daysLeft/overdue 标记）+ Web 首页 Alert + 小程序首页提醒条 + 小程序就诊列表复诊角标（基于 nextVisitDate 逾期红/临期橙）；指标异常推送待做 |
 | 4.3.4 | 通知系统 | ⏳ | 第15周 | | 订阅到期提醒、续费提醒 |
 | 4.3.5 | 全局功能联调 | 🔄 | 第15周 | | 本地环境端到端回归已通过；云端联调待部署后 |
 
@@ -379,3 +379,4 @@
 | 2026-09-30 | 安全加固+单测扩展+错误处理：①1.3.7 ✅ @nestjs/throttler 全局限流（登录 5/min、AI 10/min、上传 20/min、探活豁免，实测第 6 次请求返回 429）；②1.3.4 扩展 report/diagnosis/medication 三 service 共 28 新用例，39/39 全过，test 脚本固化 --runInBand 规避 worker 内存崩溃；③2.4.3 ✅ 全局 ErrorBoundary + 404 页。总进度 42%→43% | JackHe |
 | 2026-09-30 | 单测收尾+复诊预警：①1.3.4 ✅ auth.service（13 用例：自动建档/密码 hash/401 不泄露账号存在性/BigInt 序列化）+ ai.service（8 用例：前置校验不白扣额度/402 中止不回写/降级策略/路径穿越防护），63/63 全过；②4.3.3 启动：新增 GET /diagnoses/upcoming-visits（逾期+未来 N 天，daysLeft/overdue 标记，含 3 新单测），Web 首页复诊提醒 Alert。总进度 43%→44% | JackHe |
 | 2026-09-30 | 小程序复诊提醒 + 缓存接入：①小程序首页新增复诊提醒条（复用 /diagnoses/upcoming-visits，逾期红/临期橙，点击跳就诊记录，build:mp-weixin 验证通过）；②1.3.6 ✅ @nestjs/cache-manager（内存 store 起步，预留 Redis 平滑切换）封装 AppCacheService，趋势/首页概览 getOrSet 缓存 + 版本号失效（写操作 bump），ReportService 可选注入向后兼容，新增 4 缓存单测，67/67 全过。三端构建均绿。总进度 44%→45% | JackHe |
+| 2026-10-02 | 复诊预警闭环 + echarts 瘦身：①小程序就诊列表页新增复诊待办角标（基于 nextVisitDate 客户端算逾期红/7天内橙，无需额外请求）；②1.3.6 收尾：Trend 页改 echarts/core 按需注册（LineChart+Grid+Tooltip+Canvas），卸载未用的 echarts-for-react，vendor-echarts 全量~1MB→455KB(gzip 156KB)。web/mini 构建均绿 | JackHe |

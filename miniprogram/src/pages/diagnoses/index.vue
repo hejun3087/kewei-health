@@ -16,6 +16,7 @@
         <view class="diag-header">
           <text class="diag-date">{{ (d.visitDate || '').slice(0, 10) }}</text>
           <text class="diag-hospital">{{ d.hospital || '未填写医院' }}</text>
+          <text v-if="visitStatus(d)" class="visit-badge" :class="visitStatus(d).cls">{{ visitStatus(d).label }}</text>
           <text class="arrow">{{ expanded === d.id ? '∧' : '∨' }}</text>
         </view>
         <text class="diag-text">{{ d.diagnosisText }}</text>
@@ -113,6 +114,19 @@ const memberIndex = ref(0);
 const memberNames = computed(() => members.value.map((m: any) => m.name || m.relation || '未命名'));
 
 const today = new Date().toISOString().slice(0, 10);
+
+// 复诊状态角标：基于 nextVisitDate 与今天比较（逾期红 / 7天内橙）
+const visitStatus = (d: any): { label: string; cls: string } | null => {
+  if (!d.nextVisitDate) return null;
+  const next = new Date(d.nextVisitDate);
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  const diff = Math.round((next.getTime() - base.getTime()) / 86400000);
+  if (diff < 0) return { label: '复诊已逾期', cls: 'visit-badge-red' };
+  if (diff === 0) return { label: '今天复诊', cls: 'visit-badge-red' };
+  if (diff <= 7) return { label: diff + '天后复诊', cls: 'visit-badge-orange' };
+  return null;
+};
 const form = reactive({
   visitDate: today,
   diagnosisText: '',
@@ -204,6 +218,9 @@ const onDelete = (d: any) => {
 .diag-item { padding: 20rpx 0; border-bottom: 1rpx solid #f0f0f0; }
 .diag-item:last-child { border-bottom: none; }
 .diag-header { display: flex; align-items: center; margin-bottom: 8rpx; }
+.visit-badge { font-size: 20rpx; margin-right: 12rpx; padding: 2rpx 12rpx; border-radius: 8rpx; }
+.visit-badge-red { color: #ff4d4f; background: #fff1f0; }
+.visit-badge-orange { color: #fa8c16; background: #fff7e6; }
 .diag-date { font-size: 26rpx; color: #1677ff; font-weight: 500; margin-right: 16rpx; }
 .diag-hospital { font-size: 24rpx; color: #999; flex: 1; }
 .arrow { color: #ccc; font-size: 24rpx; }

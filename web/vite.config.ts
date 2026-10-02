@@ -17,7 +17,7 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-antd': ['antd', '@ant-design/icons'],
-          'vendor-echarts': ['echarts', 'echarts-for-react'],
+          'vendor-echarts': ['echarts/core', 'echarts/charts', 'echarts/components', 'echarts/renderers'],
           'vendor-utils': ['axios', 'dayjs'],
         },
       },

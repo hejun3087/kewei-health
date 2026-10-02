@@ -1,14 +1,20 @@
 import { useEffect, useState, useRef } from 'react';
 import { Card, Select, DatePicker, Empty, Spin } from 'antd';
-import * as echarts from 'echarts';
+// echarts 按需引入（1.3.6）：只注册折线图 + 用到的组件/渲染器，大幅缩减 vendor-echarts 体积
+import * as echarts from 'echarts/core';
+import { LineChart } from 'echarts/charts';
+import { GridComponent, TooltipComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
 import api from '../utils/api';
+
+echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
 export default function TrendPage() {
   const [selectedItem, setSelectedItem] = useState<string>();
   const [trackableItems, setTrackableItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstance = useRef<echarts.ECharts>();
+  const chartInstance = useRef<echarts.EChartsType>();
 
   useEffect(() => {
     api.get('/reports/trackable-items').then((res) => {
