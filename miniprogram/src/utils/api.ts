@@ -82,4 +82,15 @@ export const memberSubscriptionApi = {
   plans: () => http.get<any>('/member/plans'),
   upgrade: (plan: string, paymentMethod = 'WECHAT') =>
     http.post<any>('/member/upgrade', { plan, paymentMethod }),
+  // 通知中心（4.3.4）：订阅到期/续费 + AI 额度预警，返回 notices 数组
+  notifications: () => http.get<any>('/member/notifications').then((res: any) =>
+    Array.isArray(res) ? res : []),
+};
+
+// ==================== 报告分享（4.3.2，家庭版） ====================
+// 后端签发只读分享 token，返回 { token, path, expiresInDays }；
+// 非家庭版权益时后端返回 402，由 request.ts 统一弹升级引导。
+export const shareApi = {
+  createReport: (reportId: string) =>
+    http.post<any>(`/share/report/${reportId}`),
 };

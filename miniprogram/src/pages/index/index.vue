@@ -1,5 +1,18 @@
 <template>
   <view class="container">
+    <!-- 订阅/额度通知（4.3.4，点击跳会员页） -->
+    <view
+      v-for="n in notices"
+      :key="n.type"
+      class="card notice-alert"
+      :class="n.level === 'error' ? 'notice-alert-error' : 'notice-alert-warn'"
+      @tap="goMembership"
+    >
+      <view class="notice-alert-title">📢 {{ n.title }}</view>
+      <view class="notice-alert-msg">{{ n.message }}</view>
+      <view class="notice-alert-action">{{ n.actionText }} ›</view>
+    </view>
+
     <!-- 复诊提醒（逾期红/临期橙，点击跳就诊记录） -->
     <view
       v-if="upcomingVisits.length > 0"
@@ -79,23 +92,26 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { reportApi, medicationApi, diagnosisApi } from '../../utils/api';
+import { reportApi, medicationApi, diagnosisApi, memberSubscriptionApi } from '../../utils/api';
 
 const stats = ref({ totalReports: 0, currentMeds: 0, trackableItems: 0 });
 const recentReports = ref<any[]>([]);
 const upcomingVisits = ref<any[]>([]);
+const notices = ref<any[]>([]);
 const hasOverdue = computed(() => upcomingVisits.value.some((v: any) => v.overdue));
 
 const load = async () => {
   try {
-    const [dash, meds, track, visits] = await Promise.all([
+    const [dash, meds, track, visits, noticesRes] = await Promise.all([
       reportApi.dashboard().catch(() => ({ totalReports: 0, recentReports: [] })),
       medicationApi.current().catch(() => []),
       reportApi.trackableItems().catch(() => []),
       diagnosisApi.upcomingVisits(7).catch(() => []),
+      memberSubscriptionApi.notifications().catch(() => []),
     ]);
     recentReports.value = dash?.recentReports || [];
     upcomingVisits.value = Array.isArray(visits) ? visits : [];
+    notices.value = Array.isArray(noticesRes) ? noticesRes : [];
     stats.value = {
       totalReports: dash?.totalReports || 0,
       currentMeds: Array.isArray(meds) ? meds.length : 0,
@@ -113,12 +129,19 @@ const goUpload = () => uni.switchTab({ url: '/pages/upload/index' });
 const goReports = () => uni.switchTab({ url: '/pages/reports/list' });
 const goMedications = () => uni.navigateTo({ url: '/pages/medications/index' });
 const goDiagnoses = () => uni.navigateTo({ url: '/pages/diagnoses/index' });
+const goMembership = () => uni.navigateTo({ url: '/pages/membership/index' });
 const goDetail = (id: string) => uni.navigateTo({ url: `/pages/reports/detail?id=${id}` });
 </script>
 
 <style scoped>
 .stats-row { display: flex; justify-content: space-around; padding: 20rpx 0; }
 .visit-alert { border-left: 8rpx solid #faad14; }
+.notice-alert { border-left: 8rpx solid #faad14; }
+.notice-alert-error { border-left-color: #ff4d4f; background: #fff2f0; }
+.notice-alert-warn { border-left-color: #faad14; background: #fffbe6; }
+.notice-alert-title { font-size: 28rpx; font-weight: 600; color: #333; margin-bottom: 8rpx; }
+.notice-alert-msg { font-size: 24rpx; color: #666; }
+.notice-alert-action { font-size: 24rpx; color: #1677ff; margin-top: 8rpx; }
 .visit-alert-error { border-left-color: #ff4d4f; background: #fff2f0; }
 .visit-alert-warn { border-left-color: #faad14; background: #fffbe6; }
 .visit-alert-title { font-size: 28rpx; font-weight: 600; color: #333; margin-bottom: 12rpx; }

@@ -21,6 +21,12 @@
           <text class="item-detail">{{ item.value }} {{ item.unit || '' }} (参考: {{ refText(item) }})</text>
         </view>
       </view>
+
+      <!-- 分享（4.3.2，家庭版权益；非家庭版后端返回 402 自动弹升级） -->
+      <view class="share-bar">
+        <button class="share-btn" :loading="sharing" @tap="onShare">{{ sharing ? '生成中...' : '🔗 分享报告' }}</button>
+        <text class="share-tip">生成 30 天有效的只读查看链接，对方无需登录</text>
+      </view>
     </view>
     <view v-else class="empty-text">报告不存在</view>
   </view>
@@ -29,13 +35,17 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { reportApi } from '../../utils/api';
+import { reportApi, shareApi } from '../../utils/api';
+import { WEB_BASE_URL } from '../../utils/config';
 
 const report = ref<any>(null);
 const loading = ref(true);
+const sharing = ref(false);
+const reportId = ref('');
 
 onLoad(async (query: any) => {
   if (!query?.id) { loading.value = false; return; }
+  reportId.value = query.id;
   try {
     report.value = await reportApi.detail(query.id);
   } catch (e) {
@@ -44,6 +54,25 @@ onLoad(async (query: any) => {
     loading.value = false;
   }
 });
+
+// 生成只读分享链接并复制到剪贴板
+const onShare = async () => {
+  if (!reportId.value || sharing.value) return;
+  sharing.value = true;
+  try {
+    const res: any = await shareApi.createReport(reportId.value);
+    const link = `${WEB_BASE_URL}${res.path}`;
+    uni.setClipboardData({
+      data: link,
+      success: () => uni.showToast({ title: '分享链接已复制', icon: 'none' }),
+      fail: () => uni.showModal({ title: '分享链接', content: link, showCancel: false }),
+    });
+  } catch (e) {
+    // 402 付费墙 / 其他错误已由 request.ts 统一处理
+  } finally {
+    sharing.value = false;
+  }
+};
 
 const statusMap: Record<string, string> = {
   NORMAL: '正常', HIGH: '偏高↑', LOW: '偏低↓', ABNORMAL: '异常',
@@ -69,4 +98,7 @@ const refText = (item: any) => {
 .status-normal { background: #f6ffed; color: #52c41a; }
 .status-abnormal { background: #fff2f0; color: #ff4d4f; }
 .item-detail { font-size: 26rpx; color: #666; }
+.share-bar { margin-top: 24rpx; padding-top: 24rpx; border-top: 1rpx solid #f0f0f0; }
+.share-btn { background: #1677ff; color: #fff; font-size: 30rpx; border-radius: 12rpx; }
+.share-tip { display: block; font-size: 22rpx; color: #999; margin-top: 12rpx; text-align: center; }
 </style>
