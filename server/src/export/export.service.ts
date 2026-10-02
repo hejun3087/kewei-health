@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
+import * as PDFDocument from 'pdfkit';
+import { existsSync } from 'fs';
 import { PrismaService } from '../prisma/prisma.service';
 import { MemberService } from '../member/member.service';
 
@@ -12,6 +14,8 @@ import { MemberService } from '../member/member.service';
  */
 @Injectable()
 export class ExportService {
+  private readonly logger = new Logger(ExportService.name);
+
   constructor(
     private prisma: PrismaService,
     private memberService: MemberService,
@@ -21,13 +25,9 @@ export class ExportService {
     return d ? new Date(d).toISOString().slice(0, 10) : '';
   }
 
-  /** 生成导出工作簿，返回 buffer 与建议文件名 */
-  async exportHealthData(userId: string, memberId?: string): Promise<{ buffer: Buffer; filename: string }> {
-    // 权益校验：免费版抛 402
-    await this.memberService.assertExportAccess(userId);
-
+  /** 加载导出所需数据（Excel/PDF 共用）：限定 userId + deletedAt:null，可选 memberId 过滤 */
+  private async gatherData(userId: string, memberId?: string) {
     const memberWhere = memberId ? { memberId } : {};
-
     const [reports, diagnoses, medications] = await Promise.all([
       this.prisma.report.findMany({
         where: { userId, deletedAt: null, ...memberWhere },
@@ -45,6 +45,15 @@ export class ExportService {
         orderBy: { createdAt: 'desc' },
       }),
     ]);
+    return { reports, diagnoses, medications };
+  }
+
+  /** 生成导出工作簿，返回 buffer 与建议文件名 */
+  async exportHealthData(userId: string, memberId?: string): Promise<{ buffer: Buffer; filename: string }> {
+    // 权益校验：免费版抛 402
+    await this.memberService.assertExportAccess(userId);
+
+    const { reports, diagnoses, medications } = await this.gatherData(userId, memberId);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = '可为健康';
@@ -170,5 +179,130 @@ export class ExportService {
     const buffer = await wb.xlsx.writeBuffer();
     const filename = `kewei-health-export-${this.fmtDate(new Date())}.xlsx`;
     return { buffer: Buffer.from(buffer), filename };
+  }
+
+  /**
+   * 解析可用于中文渲染的 CJK 字体文件。
+   * 优先环境变量 PDF_CJK_FONT；其次常见 Windows/Linux/macOS 路径。
+   * 找不到返回 null（调用方降级为内置字体，中文会显示为空格但不会报错）。
+   */
+  private resolveCjkFont(): string | null {
+    const candidates = [
+      process.env.PDF_CJK_FONT,
+      'C:/Windows/Fonts/NotoSansSC-VF.ttf',
+      'C:/Windows/Fonts/simhei.ttf',
+      'C:/Windows/Fonts/msyh.ttc',
+      'C:/Windows/Fonts/simsun.ttc',
+      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+      '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+      '/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc',
+      '/usr/share/fonts/noto/NotoSansCJK-Regular.ttc',
+      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
+      '/System/Library/Fonts/PingFang.ttc',
+    ].filter(Boolean) as string[];
+    for (const p of candidates) {
+      try {
+        if (existsSync(p)) return p;
+      } catch {
+        /* ignore unreadable path */
+      }
+    }
+    return null;
+  }
+
+  /** 生成健康档案 PDF，返回 buffer 与建议文件名 */
+  async exportHealthDataPdf(userId: string, memberId?: string): Promise<{ buffer: Buffer; filename: string }> {
+    // 权益校验：免费版抛 402
+    await this.memberService.assertExportAccess(userId);
+
+    const { reports, diagnoses, medications } = await this.gatherData(userId, memberId);
+
+    const doc = new PDFDocument({ size: 'A4', margin: 42, info: { Title: '可为健康档案' } });
+    const fontPath = this.resolveCjkFont();
+    if (fontPath) {
+      try {
+        doc.font(fontPath);
+      } catch (e) {
+        this.logger.warn(`PDF 字体加载失败，降级为内置字体: ${e}`);
+      }
+    } else {
+      this.logger.warn('未检测到 CJK 字体，PDF 中文可能无法渲染（可设置环境变量 PDF_CJK_FONT）');
+    }
+
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
+    const done = new Promise<void>((resolve) => doc.on('end', () => resolve()));
+
+    // ---- 标题 ----
+    doc.fontSize(20).text('可为健康 · 个人健康档案', { align: 'center' });
+    doc.moveDown(0.4);
+    doc.fontSize(10).fillColor('#666').text(
+      `导出时间：${new Date().toLocaleString('zh-CN')}    报告 ${reports.length} 份 · 就诊 ${diagnoses.length} 次 · 用药 ${medications.length} 种`,
+      { align: 'center' },
+    );
+    doc.moveDown(1);
+    doc.fillColor('#000');
+
+    const heading = (t: string) => {
+      if (doc.y > 720) doc.addPage();
+      doc.moveDown(0.6);
+      doc.fontSize(14).text(t);
+      doc.moveDown(0.2);
+    };
+    const kv = (label: string, value?: string | null) => {
+      doc.fontSize(9).fillColor('#888').text(`${label}：`, { continued: true }).fillColor('#000').text(value || '-');
+    };
+
+    // ---- 一、检查报告 ----
+    heading('一、检查报告');
+    if (reports.length === 0) doc.fontSize(10).text('（无记录）');
+    reports.forEach((r: any, i: number) => {
+      doc.fontSize(11).text(`${i + 1}. ${r.categoryL1 || ''} ${r.categoryL2 || ''}　${this.fmtDate(r.reportDate)}`);
+      kv('成员', r.member?.name);
+      kv('医院/科室', `${r.hospital || '-'} ${r.department || ''}`);
+      if (r.summary) kv('摘要', r.summary);
+      const items = r.items || [];
+      if (items.length) {
+        doc.fontSize(9).fillColor('#888').text('检查明细：').fillColor('#000');
+        items.forEach((it: any) => {
+          const ref = it.referenceText || (it.referenceMin != null && it.referenceMax != null ? `${it.referenceMin}-${it.referenceMax}` : '');
+          const flag = it.abnormal && it.abnormal !== 'NORMAL' ? ` [${it.abnormal}]` : '';
+          doc.fontSize(10).text(`  · ${it.name} ${it.value}${it.unit || ''}（参考 ${ref || '-'}）${flag}`);
+        });
+      }
+      doc.moveDown(0.4);
+    });
+
+    // ---- 二、就诊记录 ----
+    heading('二、就诊记录');
+    if (diagnoses.length === 0) doc.fontSize(10).text('（无记录）');
+    diagnoses.forEach((d: any, i: number) => {
+      doc.fontSize(11).text(`${i + 1}. ${d.diagnosisText || '就诊'}　${this.fmtDate(d.visitDate)}`);
+      kv('成员', d.member?.name);
+      kv('医院/科室', `${d.hospital || '-'} ${d.department || ''}`);
+      if (d.complaint) kv('主诉', d.complaint);
+      if (d.advice) kv('医嘱', d.advice);
+      if (d.nextVisitDate) kv('下次复诊', this.fmtDate(d.nextVisitDate));
+      doc.moveDown(0.4);
+    });
+
+    // ---- 三、用药记录 ----
+    heading('三、用药记录');
+    if (medications.length === 0) doc.fontSize(10).text('（无记录）');
+    medications.forEach((m: any, i: number) => {
+      doc.fontSize(11).text(`${i + 1}. ${m.drugName || ''} ${m.tradeName ? `(${m.tradeName})` : ''}`);
+      kv('成员', m.member?.name);
+      kv('用法用量', `${m.usage || ''} ${m.dosage || ''} ${m.frequency || ''}`.trim());
+      kv('起止', `${this.fmtDate(m.startDate) || '-'} ~ ${this.fmtDate(m.endDate) || '-'}`);
+      kv('状态', m.status);
+      doc.moveDown(0.4);
+    });
+
+    doc.end();
+    await done;
+
+    const buffer = Buffer.concat(chunks);
+    const filename = `kewei-health-export-${this.fmtDate(new Date())}.pdf`;
+    return { buffer, filename };
   }
 }

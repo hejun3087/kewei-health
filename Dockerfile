@@ -44,7 +44,7 @@ RUN npm ci --omit=dev \
 # ============ 生产镜像 ============
 FROM node:20-alpine
 
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init font-noto-cjk
 
 WORKDIR /app
 

@@ -101,4 +101,37 @@ describe('ExportService', () => {
       expect(wb.getWorksheet('用药记录')!.rowCount).toBe(2);
     });
   });
+
+  describe('PDF 导出（4.3.1）', () => {
+    it('免费版：assertExportAccess 抛 402，且不查询任何数据', async () => {
+      memberService.assertExportAccess.mockRejectedValue(
+        new HttpException('需升级', HttpStatus.PAYMENT_REQUIRED),
+      );
+
+      await expect(service.exportHealthDataPdf(USER_ID)).rejects.toThrow(HttpException);
+      expect(prisma.report.findMany).not.toHaveBeenCalled();
+    });
+
+    it('返回合法 PDF buffer（%PDF 头）与规范文件名（字体缺失也能降级生成）', async () => {
+      prisma.report.findMany.mockResolvedValue([
+        {
+          reportDate: new Date('2026-01-01'),
+          member: { name: '张三' },
+          categoryL1: '血液检查',
+          categoryL2: '血常规',
+          hospital: '协和',
+          items: [{ name: '白细胞', value: '11.2', unit: '10^9/L', referenceMin: 3.5, referenceMax: 9.5, abnormal: 'HIGH' }],
+        },
+      ]);
+      prisma.diagnosis.findMany.mockResolvedValue([]);
+      prisma.medication.findMany.mockResolvedValue([]);
+
+      const { buffer, filename } = await service.exportHealthDataPdf(USER_ID);
+
+      expect(Buffer.isBuffer(buffer)).toBe(true);
+      expect(buffer.slice(0, 5).toString()).toBe('%PDF-');
+      expect(buffer.length).toBeGreaterThan(0);
+      expect(filename).toMatch(/^kewei-health-export-\d{4}-\d{2}-\d{2}\.pdf$/);
+    });
+  });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Row, Col, Card, Statistic, List, Tag, Button, Empty, Spin, Alert, Space, message } from 'antd';
-import { FileTextOutlined, MedicineBoxOutlined, CloudUploadOutlined, ArrowUpOutlined, CalendarOutlined, DownloadOutlined } from '@ant-design/icons';
+import { FileTextOutlined, MedicineBoxOutlined, CloudUploadOutlined, ArrowUpOutlined, CalendarOutlined, DownloadOutlined, FilePdfOutlined } from '@ant-design/icons';
 import api from '../utils/api';
 
 export default function HomePage() {
@@ -12,14 +12,15 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
-  // 数据导出（4.3.1）：blob 下载，免费版由 api 拦截器弹 402 付费墙
-  const handleExport = async () => {
+  // 数据导出（4.3.1）：blob 下载 Excel/PDF，免费版由 api 拦截器弹 402 付费墙
+  const handleExport = async (format: 'excel' | 'pdf' = 'excel') => {
     setExporting(true);
     try {
-      const res = await api.get('/export/health-data', { responseType: 'blob' });
+      const endpoint = format === 'pdf' ? '/export/health-data/pdf' : '/export/health-data';
+      const res = await api.get(endpoint, { responseType: 'blob' });
       const cd = (res.headers['content-disposition'] as string) || '';
       const match = /filename="?([^";]+)"?/i.exec(cd);
-      const filename = match ? match[1] : 'kewei-health-export.xlsx';
+      const filename = match ? match[1] : `kewei-health-export.${format === 'pdf' ? 'pdf' : 'xlsx'}`;
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a');
       a.href = url;
@@ -165,9 +166,14 @@ export default function HomePage() {
             <Button icon={<ArrowUpOutlined />} block size="large" style={{ marginTop: 12 }} onClick={() => navigate('/trend')}>
               趋势分析
             </Button>
-            <Button icon={<DownloadOutlined />} block size="large" style={{ marginTop: 12 }} loading={exporting} onClick={handleExport}>
-              导出健康档案
-            </Button>
+            <Space.Compact block style={{ marginTop: 12 }}>
+              <Button icon={<DownloadOutlined />} block loading={exporting} onClick={() => handleExport('excel')}>
+                导出 Excel
+              </Button>
+              <Button icon={<FilePdfOutlined />} block loading={exporting} onClick={() => handleExport('pdf')}>
+                导出 PDF
+              </Button>
+            </Space.Compact>
           </Card>
         </Col>
       </Row>

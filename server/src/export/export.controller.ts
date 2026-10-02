@@ -30,4 +30,24 @@ export class ExportController {
     });
     res.end(buffer);
   }
+
+  @Get('health-data/pdf')
+  @ApiOperation({ summary: '导出健康档案为 PDF（标准版及以上，免费版返回 402）' })
+  @ApiQuery({ name: 'memberId', required: false, description: '可选，按家庭成员过滤' })
+  async exportHealthDataPdf(
+    @Request() req,
+    @Res() res: Response,
+    @Query('memberId') memberId?: string,
+  ) {
+    const { buffer, filename } = await this.exportService.exportHealthDataPdf(
+      req.user.userId,
+      memberId,
+    );
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
+  }
 }

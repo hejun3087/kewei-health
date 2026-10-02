@@ -194,7 +194,7 @@
 
 | # | 任务 | 状态 | 计划完成 | 实际完成 | 备注 |
 |---|------|------|---------|---------|------|
-| 4.3.1 | 数据导出功能（PDF/Excel） | 🔄 | 第15周 | | Excel 导出已完成：GET /export/health-data（exceljs 聚合四表：检查报告/报告明细/就诊记录/用药记录），标准版起 canExport 权益位 + 402 付费墙，Web 首页导出按钮 blob 下载，含 4 单测（71/71 全过）；PDF 导出待做 |
+| 4.3.1 | 数据导出功能（PDF/Excel） | ✅ | 第15周 | 已完成 | Excel + PDF 双格式：①Excel——GET /export/health-data（exceljs 聚合四表）；②PDF——GET /export/health-data/pdf（pdfkit 生成 A4 健康档案，含报告/明细/就诊/用药三段）。中文渲染：resolveCjkFont 运行时探测（env PDF_CJK_FONT + Win/Linux/macOS 常见路径，找不到降级内置字体不报错），pdfkit 自动子集化嵌入中文字体（实测 21KB）；生产 Dockerfile 加 font-noto-cjk。两者共用 gatherData，canExport 标准版起 + 402 付费墙，Web 首页 Excel/PDF 双按钮 blob 下载；含 6 单测（4 excel + 2 pdf） |
 | 4.3.2 | 报告分享功能 | ✅ | 第15周 | 已完成 | 三端齐备：后端 POST /share/report/:id（JWT scope=share 签发、无新增表、30天有效、归属校验）+ 免登录 GET /share/view/:token（脱敏只读）；Web 分享弹窗/公开查看页；小程序报告详情页“分享报告”按钮（生成链接 + 复制到剪贴板）；canShare 家庭版权益位 + 402 付费墙（request.ts 自动弹升级），分享 token 不可冒充登录态（jwt.strategy 拦截）；含 7 单测 |
 | 4.3.3 | 健康预警功能 | ✅ | 第15周 | 已完成 | 两类预警双端闭环：①复诊提醒——GET /diagnoses/upcoming-visits（逾期+未来N天，daysLeft/overdue 标记）+ Web 首页 Alert + Web 就诊列表角标 + 小程序首页提醒条 + 小程序就诊列表角标；②指标异常预警（4.3.3 收尾）——通知中心 getNotifications 新增 health 通知（近 14 天报告中 abnormal 为 HIGH/LOW/ABNORMAL 的 ReportItem，以 reportDate 为窗口、纯读取零新表、名称去重），Web/小程序首页均渲染（actionUrl=/reports）。含 member 单测 2 新用例 |
 | 4.3.4 | 通知系统 | 🔄 | 第15周 | | 通知中心双端已齐：GET /member/notifications（订阅到期/续费 + AI 额度≥ 80% 预警，基于现有 Subscription 字段计算）；Web 首页 Alert + 小程序首页通知提醒条（点击跳会员页）；含 4 单测；短信/微信订阅消息等外部推送渠道待配置 |
@@ -343,11 +343,11 @@
 | 第一阶段：行政+后端 | 29 | 19 | 0 | 10 | 66% |
 | 第二阶段：Web前端 | 23 | 21 | 1 | 1 | 91% |
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
-| 第四阶段：AI+功能 | 16 | 5 | 4 | 7 | 31% |
+| 第四阶段：AI+功能 | 16 | 6 | 3 | 7 | 38% |
 | 第五阶段：测试 | 15 | 1 | 1 | 13 | 7% |
 | 第六阶段：合规上线 | 16 | 0 | 0 | 16 | 0% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **59** | **7** | **59** | **47%** |
+| **合计** | **125** | **60** | **6** | **59** | **48%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -385,3 +385,4 @@
 | 2026-10-02 | 4.3.2 报告分享 + 4.3.4 通知中心：①分享（家庭版）——新增 ShareModule，POST /share/report/:id 用 JWT（scope=share + reportId + ownerId、无新增表、 30 天）签发只读链接，免登录 GET /share/view/:token 脱敏返回；plan.config 加 canShare、assertShareAccess 非家庭版抛 402；jwt.strategy 拒绝 share token 冒充登录；Web Reports 分享弹窗 + 公开查看页 /share/report/:token（App.tsx 免登录路由前置）；②通知（4.3.4）——MemberService.getNotifications（订阅到期/续费 + AI 额度≥80% 预警）+ GET /member/notifications + Web 首页 Alert。share 7 + member 7 新增单测，85/85→全量 8 套件/82 用例全过；server/web build 全绿 | JackHe |
 | 2026-10-02 | 小程序通知/分享对齐（4.3.2 关账 ✅ + 4.3.4）：①api.ts 新增 memberSubscriptionApi.notifications + shareApi.createReport；②首页新增订阅/额度通知提醒条（复用 /member/notifications，error 红/warning 橙，点击跳会员页）；③报告详情页新增“分享报告”按钮（POST /share/report/:id → 拼 WEB_BASE_URL+path → uni.setClipboardData 复制；config.ts 新增 WEB_BASE_URL），非家庭版 402 由 request.ts 统一弹升级。4.3.2 三端齐备故置 ✅；build:mp-weixin 绿（MINI_EXIT=0，未改后端）。阶段四 19%→25%，总进度 57→58 完成 | JackHe |
 | 2026-10-02 | 指标异常预警（4.3.3 收尾 ✅）：①后端 MemberService.getNotifications 新增第 3 类 health 通知——查近 14 天（以 reportDate 为窗口）abnormal ∈ {HIGH,LOW,ABNORMAL} 的 ReportItem，名称去重后取前 3 拼提示，unshift 置顶；纯读取零新表、try/catch 隔离不影响其他通知；②双端渲染：Web 首页 Alert 已按 n.actionUrl 导航（/reports 天然生效）；小程序首页提醒条改为 goNotice(n) 按 actionUrl 路由（/reports→switchTab 报告 tab，否则会员页）。member spec 补 reportItem.findMany mock + 2 用例（有/无异常项）。全量 8 套件/87 用例全过；server build/mini build 全绿（JEST_ALL_EXIT=0/MINI_EXIT=0，未改 Web 代码）。4.3.3 两类预警双端闭环置 ✅，阶段四 25%→31%，总进度 58→59 | JackHe |
+| 2026-10-02 | PDF 导出（4.3.1 收尾 ✅）：①server 新增依赖 pdfkit + @types/pdfkit；②export.service 抽取 gatherData（Excel/PDF 共用）+ resolveCjkFont（运行时探测 CJK 字体：env PDF_CJK_FONT + Win/Linux/macOS 常见路径，找不到降级内置字体不报错）+ exportHealthDataPdf（pdfkit A4，报告/明细/就诊/用药三段，fillColor/自动分页）；③export.controller 新增 GET /export/health-data/pdf（application/pdf 下载头）；④Web 首页导出按钮改 Space.Compact Excel/PDF 双选项（handleExport(format)，修正 url 变量重名）；⑤Dockerfile 生产段 apk 加 font-noto-cjk。中文渲染本地实测生成 21KB 且 FontFile 子集化嵌入；export spec +2 PDF 用例（402 前置 / %PDF 头与文件名）。全量 8 套件/89 用例全过；server/web build 全绿（JEST_ALL_EXIT=0/WEB_EXIT=0）。4.3.1 置 ✅，阶段四 31%→38%，总进度 59→60 | JackHe |
