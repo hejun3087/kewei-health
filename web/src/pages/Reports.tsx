@@ -122,7 +122,7 @@ export default function ReportsPage() {
         <Select placeholder="类型筛选" style={{ width: 150 }} allowClear options={categoryOptions} value={categoryFilter} onChange={(v) => { setCategoryFilter(v); }} />
         <Button onClick={fetchReports}>搜索</Button>
       </Space>
-      <Table dataSource={reports} columns={columns} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} locale={{ emptyText: <EmptyGuide description="还没有检查报告，上传报告图片或手动添加，AI 会自动识别归类" actionText="添加检查报告" onAction={() => setModalOpen(true)} /> }} />
+      <Table dataSource={reports} columns={columns} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} scroll={{ x: 'max-content' }} locale={{ emptyText: <EmptyGuide description="还没有检查报告，上传报告图片或手动添加，AI 会自动识别归类" actionText="添加检查报告" onAction={() => setModalOpen(true)} /> }} />
 
       <Modal title="手动添加报告" open={modalOpen} onCancel={() => setModalOpen(false)} onOk={() => form.submit()} width={600}>
         <Form form={form} layout="vertical" onFinish={handleAdd}>

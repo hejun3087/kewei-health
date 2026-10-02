@@ -81,7 +81,7 @@ export default function DiagnosesPage() {
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>手动添加</Button>
       </div>
 
-      <Table dataSource={diagnoses} columns={columns} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} locale={{ emptyText: <EmptyGuide description="还没有就诊记录，添加后可关联检查报告与用药，形成完整就诊脉络" actionText="添加就诊记录" onAction={() => setModalOpen(true)} /> }} />
+      <Table dataSource={diagnoses} columns={columns} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} scroll={{ x: 'max-content' }} locale={{ emptyText: <EmptyGuide description="还没有就诊记录，添加后可关联检查报告与用药，形成完整就诊脉络" actionText="添加就诊记录" onAction={() => setModalOpen(true)} /> }} />
 
       <Modal title="添加就诊记录" open={modalOpen} onCancel={() => setModalOpen(false)} onOk={() => form.submit()} width={600}>
         <Form form={form} layout="vertical" onFinish={handleAdd}>

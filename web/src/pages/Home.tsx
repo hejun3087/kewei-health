@@ -64,26 +64,26 @@ export default function HomePage() {
         />
       )}
 
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={8}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={8}>
           <Card>
             <Statistic title="检查报告" value={dashboard.totalReports} prefix={<FileTextOutlined />} suffix="份" />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={8}>
           <Card>
             <Statistic title="当前用药" value={dashboard.currentMedications} prefix={<MedicineBoxOutlined />} suffix="种" />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={8}>
           <Card>
             <Statistic title="可追踪指标" value={dashboard.trackableItems} prefix={<ArrowUpOutlined />} suffix="项" />
           </Card>
         </Col>
       </Row>
 
-      <Row gutter={16}>
-        <Col span={16}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={16}>
           <Card title="最近报告" extra={<Button type="link" onClick={() => navigate('/reports')}>查看全部</Button>}>
             <List
               dataSource={dashboard.recentReports}
@@ -108,7 +108,7 @@ export default function HomePage() {
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} lg={8}>
           <Card>
             <Button type="primary" icon={<CloudUploadOutlined />} block size="large" onClick={() => navigate('/upload')}>
               上传报告
