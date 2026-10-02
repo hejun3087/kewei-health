@@ -39,6 +39,7 @@ describe('MemberService', () => {
         count: jest.fn(),
         findMany: jest.fn(),
       },
+      reportItem: { findMany: jest.fn().mockResolvedValue([]) },
       user: { update: jest.fn() },
     };
     service = new MemberService(prisma as any);
@@ -284,6 +285,37 @@ describe('MemberService', () => {
 
       const list = await service.getNotifications('u1');
       expect(list).toHaveLength(0);
+    });
+
+    it('指标异常预警（4.3.3）：近 14 天有异常项 → 置顶 health 通知', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(
+        makeSub({ plan: 'FREE', status: 'ACTIVE' }),
+      );
+      prisma.reportItem.findMany.mockResolvedValue([
+        { name: '白细胞计数' },
+        { name: '血红蛋白' },
+        { name: '白细胞计数' },
+      ]);
+
+      const list = await service.getNotifications('u1');
+      const health = list.find((n: any) => n.type === 'health');
+
+      expect(health).toBeDefined();
+      expect(health.level).toBe('warning');
+      expect(health.actionUrl).toBe('/reports');
+      // 去重后名称不重复
+      expect(health.message).toContain('白细胞计数');
+      expect(health.message).toContain('血红蛋白');
+    });
+
+    it('指标异常预警：无异常项 → 不含 health 通知', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(
+        makeSub({ plan: 'FAMILY', status: 'ACTIVE', endDate: FUTURE, aiUsageCount: 0 }),
+      );
+      prisma.reportItem.findMany.mockResolvedValue([]);
+
+      const list = await service.getNotifications('u1');
+      expect(list.some((n: any) => n.type === 'health')).toBe(false);
     });
   });
 });

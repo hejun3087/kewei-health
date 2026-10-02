@@ -222,8 +222,8 @@ export class MemberService {
   }
 
   /**
-   * 通知中心（4.3.4）：聚合订阅到期/续费提醒 + AI 额度预警。
-   * 数据源单一化，前端只渲染；不新增表，基于现有 Subscription 字段计算。
+   * 通知中心（4.3.4 + 4.3.3 指标异常预警）：聚合订阅到期/续费提醒 + AI 额度预警 + 近期异常指标。
+   * 数据源单一化，前端只渲染；不新增表，基于现有 Subscription 与 ReportItem 字段计算。
    */
   async getNotifications(userId: string) {
     const sub = await this.getOrCreate(userId);
@@ -277,6 +277,37 @@ export class MemberService {
           actionUrl: '/membership',
         });
       }
+    }
+
+    // 3) 指标异常预警（4.3.3）：近 14 天报告中的异常指标（纯读取，不新增表）
+    // 以 reportDate（检查日期）而非上传日期为窗口，旧报告补录不触发“近期”提醒。
+    try {
+      const since = new Date(Date.now() - 14 * 86400000);
+      const abnormalItems = await this.prisma.reportItem.findMany({
+        where: {
+          abnormal: { in: ['HIGH', 'LOW', 'ABNORMAL'] },
+          report: { userId, deletedAt: null, reportDate: { gte: since } },
+        },
+        select: { name: true },
+        orderBy: { report: { reportDate: 'desc' } },
+        take: 100,
+      });
+      if (abnormalItems && abnormalItems.length > 0) {
+        const uniqNames = Array.from(new Set(abnormalItems.map((i: any) => i.name)));
+        const preview = uniqNames.slice(0, 3).join('、');
+        const more = abnormalItems.length > 3 || uniqNames.length > 3 ? ' 等' : '';
+        notices.unshift({
+          type: 'health',
+          level: 'warning',
+          title: `近期检查有 ${abnormalItems.length} 项指标异常`,
+          message: `重点关注：${preview}${more}，建议咨询医生`,
+          actionText: '查看报告',
+          actionUrl: '/reports',
+        });
+      }
+    } catch (e) {
+      // 异常预警为附加信息，查询失败不影响订阅/额度类通知返回
+      this.logger.warn(`指标异常预警计算失败: ${e}`);
     }
 
     return notices;

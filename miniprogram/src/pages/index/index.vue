@@ -6,7 +6,7 @@
       :key="n.type"
       class="card notice-alert"
       :class="n.level === 'error' ? 'notice-alert-error' : 'notice-alert-warn'"
-      @tap="goMembership"
+      @tap="goNotice(n)"
     >
       <view class="notice-alert-title">📢 {{ n.title }}</view>
       <view class="notice-alert-msg">{{ n.message }}</view>
@@ -129,7 +129,11 @@ const goUpload = () => uni.switchTab({ url: '/pages/upload/index' });
 const goReports = () => uni.switchTab({ url: '/pages/reports/list' });
 const goMedications = () => uni.navigateTo({ url: '/pages/medications/index' });
 const goDiagnoses = () => uni.navigateTo({ url: '/pages/diagnoses/index' });
-const goMembership = () => uni.navigateTo({ url: '/pages/membership/index' });
+// 按通知 actionUrl 路由：/reports 为 tab 页需 switchTab，其余默认会员页
+const goNotice = (n: any) => {
+  if (n?.actionUrl === '/reports') return uni.switchTab({ url: '/pages/reports/list' });
+  return uni.navigateTo({ url: '/pages/membership/index' });
+};
 const goDetail = (id: string) => uni.navigateTo({ url: `/pages/reports/detail?id=${id}` });
 </script>
 
