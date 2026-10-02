@@ -30,6 +30,10 @@ npm-debug.log*
 server/jest*.txt
 web_build.txt
 
+# 测试覆盖率产物（jest --coverage，rootDir=src 故落在 server/src/coverage）
+coverage/
+coverage/lcov-report/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -8,6 +8,7 @@
     "start": "node dist/main",
     "start:prod": "node dist/main",
     "test": "jest --runInBand",
+    "test:cov": "jest --runInBand --coverage",
     "test:watch": "jest --watch",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
