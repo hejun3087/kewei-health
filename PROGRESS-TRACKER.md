@@ -214,7 +214,7 @@
 
 | # | 任务 | 状态 | 计划完成 | 实际完成 | 备注 |
 |---|------|------|---------|---------|------|
-| 5.1.1 | AI生成后端单元测试 | ⏳ | 第16周 | | 覆盖全部Service层 |
+| 5.1.1 | AI生成后端单元测试 | 🔵 | 第16周 | 进行中 | Service 层覆盖扩展：新增 user（建档/改档 birthDate 转换/剔除 password/软删除）+ family-member（列表/归属校验/套餐上限 402/增删改）共 14 用例；现共 10 个 service 有单测（10 套件/103 用例），待补 health/upload |
 | 5.1.2 | AI生成API集成测试 | ⏳ | 第16周 | | 覆盖全部Controller层 |
 | 5.1.3 | AI生成前端组件测试 | ⏳ | 第16周 | | 覆盖核心组件 |
 | 5.1.4 | AI生成E2E测试脚本 | ✅ | 第16周 | 已完成 | server/e2e-test.ps1：覆盖报告/诊断/用药/会员核心流程 |
@@ -344,10 +344,10 @@
 | 第二阶段：Web前端 | 23 | 21 | 1 | 1 | 91% |
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
 | 第四阶段：AI+功能 | 16 | 6 | 3 | 7 | 38% |
-| 第五阶段：测试 | 15 | 1 | 1 | 13 | 7% |
+| 第五阶段：测试 | 15 | 1 | 2 | 12 | 11% |
 | 第六阶段：合规上线 | 16 | 0 | 0 | 16 | 0% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **60** | **6** | **59** | **48%** |
+| **合计** | **125** | **60** | **7** | **58** | **48%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -386,3 +386,4 @@
 | 2026-10-02 | 小程序通知/分享对齐（4.3.2 关账 ✅ + 4.3.4）：①api.ts 新增 memberSubscriptionApi.notifications + shareApi.createReport；②首页新增订阅/额度通知提醒条（复用 /member/notifications，error 红/warning 橙，点击跳会员页）；③报告详情页新增“分享报告”按钮（POST /share/report/:id → 拼 WEB_BASE_URL+path → uni.setClipboardData 复制；config.ts 新增 WEB_BASE_URL），非家庭版 402 由 request.ts 统一弹升级。4.3.2 三端齐备故置 ✅；build:mp-weixin 绿（MINI_EXIT=0，未改后端）。阶段四 19%→25%，总进度 57→58 完成 | JackHe |
 | 2026-10-02 | 指标异常预警（4.3.3 收尾 ✅）：①后端 MemberService.getNotifications 新增第 3 类 health 通知——查近 14 天（以 reportDate 为窗口）abnormal ∈ {HIGH,LOW,ABNORMAL} 的 ReportItem，名称去重后取前 3 拼提示，unshift 置顶；纯读取零新表、try/catch 隔离不影响其他通知；②双端渲染：Web 首页 Alert 已按 n.actionUrl 导航（/reports 天然生效）；小程序首页提醒条改为 goNotice(n) 按 actionUrl 路由（/reports→switchTab 报告 tab，否则会员页）。member spec 补 reportItem.findMany mock + 2 用例（有/无异常项）。全量 8 套件/87 用例全过；server build/mini build 全绿（JEST_ALL_EXIT=0/MINI_EXIT=0，未改 Web 代码）。4.3.3 两类预警双端闭环置 ✅，阶段四 25%→31%，总进度 58→59 | JackHe |
 | 2026-10-02 | PDF 导出（4.3.1 收尾 ✅）：①server 新增依赖 pdfkit + @types/pdfkit；②export.service 抽取 gatherData（Excel/PDF 共用）+ resolveCjkFont（运行时探测 CJK 字体：env PDF_CJK_FONT + Win/Linux/macOS 常见路径，找不到降级内置字体不报错）+ exportHealthDataPdf（pdfkit A4，报告/明细/就诊/用药三段，fillColor/自动分页）；③export.controller 新增 GET /export/health-data/pdf（application/pdf 下载头）；④Web 首页导出按钮改 Space.Compact Excel/PDF 双选项（handleExport(format)，修正 url 变量重名）；⑤Dockerfile 生产段 apk 加 font-noto-cjk。中文渲染本地实测生成 21KB 且 FontFile 子集化嵌入；export spec +2 PDF 用例（402 前置 / %PDF 头与文件名）。全量 8 套件/89 用例全过；server/web build 全绿（JEST_ALL_EXIT=0/WEB_EXIT=0）。4.3.1 置 ✅，阶段四 31%→38%，总进度 59→60 | JackHe |
+| 2026-10-02 | user / family-member 单测（5.1.1 推进 🔵）：①新增 user.service.spec（updateProfile 的 birthDate 字符串→Date/未传不写、getUserById 剔除 password 与 null 分支、deleteAccount 软删除置 status+deletedAt）；②新增 family-member.service.spec（findAll 排序、findOne 归属、create 套餐上限 402 且不写库/birthDate 转换、update/remove 先校验归属再操作、越权抛 NotFound 不落地）。新增 2 套件/14 用例，全量 **10 套件/103 用例全过**（JEST_ALL_EXIT=0），server build 绿（BUILD_EXIT=0）。阶段五 7%→11%（5.1.1 置 🔵）；未改业务代码/Web/小程序，纯测试增量 | JackHe |
