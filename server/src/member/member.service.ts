@@ -207,6 +207,82 @@ export class MemberService {
   }
 
   /**
+   * 报告分享权益校验（4.3.2）：仅家庭版可用，其余抛 402（付费墙）。
+   */
+  async assertShareAccess(userId: string) {
+    const sub = await this.getOrCreate(userId);
+    const cfg = PLAN_CONFIG[sub.plan as keyof typeof PLAN_CONFIG];
+    if (!cfg.canShare) {
+      throw new HttpException(
+        '报告分享为家庭版专属权益，升级家庭版后可生成只读链接与家人共享',
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+    return { allowed: true, plan: sub.plan };
+  }
+
+  /**
+   * 通知中心（4.3.4）：聚合订阅到期/续费提醒 + AI 额度预警。
+   * 数据源单一化，前端只渲染；不新增表，基于现有 Subscription 字段计算。
+   */
+  async getNotifications(userId: string) {
+    const sub = await this.getOrCreate(userId);
+    const cfg = PLAN_CONFIG[sub.plan as keyof typeof PLAN_CONFIG];
+    const notices: any[] = [];
+
+    // 1) 订阅到期/续费提醒
+    if (sub.status === 'EXPIRED') {
+      notices.push({
+        type: 'expired',
+        level: 'error',
+        title: '套餐已到期，已自动降级为免费版',
+        message: '数据完整保留，续费可恢复全部套餐权益',
+        actionText: '去续费',
+        actionUrl: '/membership',
+      });
+    } else if (sub.plan !== 'FREE' && sub.endDate) {
+      const days = Math.round((sub.endDate.getTime() - Date.now()) / 86400000);
+      if (days >= 0 && days <= 30) {
+        notices.push({
+          type: 'renewal',
+          level: days <= 7 ? 'error' : 'warning',
+          title: `${cfg.name}将在 ${days} 天后到期`,
+          message: '及时续费以继续享受套餐权益',
+          actionText: '去续费',
+          actionUrl: '/membership',
+        });
+      }
+    }
+
+    // 2) AI 识别额度预警（非不限额套餐，用量 ≥ 80%）
+    if (cfg.aiPerMonth !== UNLIMITED) {
+      const remaining = Math.max(0, cfg.aiPerMonth - sub.aiUsageCount);
+      const ratio = sub.aiUsageCount / cfg.aiPerMonth;
+      if (ratio >= 1) {
+        notices.push({
+          type: 'quota',
+          level: 'error',
+          title: `本月AI识别次数已用尽（${cfg.aiPerMonth}次）`,
+          message: '下月自动重置，升级套餐可享更多额度',
+          actionText: '升级套餐',
+          actionUrl: '/membership',
+        });
+      } else if (ratio >= 0.8) {
+        notices.push({
+          type: 'quota',
+          level: 'warning',
+          title: `本月AI识别仅剩 ${remaining} 次`,
+          message: '升级套餐可享不限次/更多额度',
+          actionText: '升级套餐',
+          actionUrl: '/membership',
+        });
+      }
+    }
+
+    return notices;
+  }
+
+  /**
    * 家庭成员配额校验，返回当前套餐允许的上限。
    */
   async getMemberLimit(userId: string): Promise<number> {

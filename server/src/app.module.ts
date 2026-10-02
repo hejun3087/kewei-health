@@ -14,6 +14,7 @@ import { UploadModule } from './upload/upload.module';
 import { AiModule } from './ai/ai.module';
 import { MemberModule } from './member/member.module';
 import { ExportModule } from './export/export.module';
+import { ShareModule } from './share/share.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ExportModule } from './export/export.module';
     AiModule,
     MemberModule,
     ExportModule,
+    ShareModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

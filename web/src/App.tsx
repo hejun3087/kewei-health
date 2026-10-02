@@ -17,6 +17,7 @@ const UploadPage = lazy(() => import('./pages/Upload'));
 const ProfilePage = lazy(() => import('./pages/Profile'));
 const MembershipPage = lazy(() => import('./pages/Membership'));
 const NotFoundPage = lazy(() => import('./pages/NotFound'));
+const ShareViewPage = lazy(() => import('./pages/ShareView'));
 
 function App() {
   const { token, loading } = useAuth();
@@ -29,33 +30,36 @@ function App() {
     );
   }
 
-  if (!token) {
-    return (
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    );
-  }
-
   return (
     <Suspense fallback={<div style={{ padding: 48, textAlign: 'center' }}><Spin size="large" /></div>}>
       <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<HomePage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="reports/:id" element={<ReportDetailPage />} />
-          <Route path="diagnoses" element={<DiagnosesPage />} />
-          <Route path="diagnoses/:id" element={<DiagnosisDetailPage />} />
-          <Route path="medications" element={<MedicationsPage />} />
-          <Route path="trend" element={<TrendPage />} />
-          <Route path="upload" element={<UploadPage />} />
-          <Route path="membership" element={<MembershipPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-          {/* 404（2.4.3）：未登录已重定向，此处为登录后访问不存在路由，保留导航框架 */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-        <Route path="/login" element={<Navigate to="/" replace />} />
+        {/* 公开分享页（4.3.2）：免登录可访问，具体路由优先级高于下方未登录的 * 兜底 */}
+        <Route path="/share/report/:token" element={<ShareViewPage />} />
+
+        {token ? (
+          <>
+            <Route path="/" element={<MainLayout />}>
+              <Route index element={<HomePage />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="reports/:id" element={<ReportDetailPage />} />
+              <Route path="diagnoses" element={<DiagnosesPage />} />
+              <Route path="diagnoses/:id" element={<DiagnosisDetailPage />} />
+              <Route path="medications" element={<MedicationsPage />} />
+              <Route path="trend" element={<TrendPage />} />
+              <Route path="upload" element={<UploadPage />} />
+              <Route path="membership" element={<MembershipPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              {/* 404（2.4.3）：登录后访问不存在路由，保留导航框架 */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+            <Route path="/login" element={<Navigate to="/" replace />} />
+          </>
+        ) : (
+          <>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </>
+        )}
       </Routes>
     </Suspense>
   );

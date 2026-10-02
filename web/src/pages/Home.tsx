@@ -8,6 +8,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState<any>(null);
   const [upcomingVisits, setUpcomingVisits] = useState<any[]>([]);
+  const [notices, setNotices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
@@ -41,8 +42,9 @@ export default function HomePage() {
       api.get('/medications/current').catch(() => ({ data: [] })),
       api.get('/reports/trackable-items').catch(() => ({ data: [] })),
       api.get('/diagnoses/upcoming-visits').catch(() => ({ data: [] })),
+      api.get('/member/notifications').catch(() => ({ data: [] })),
     ])
-      .then(([reportsRes, medsRes, trackRes, visitsRes]) => {
+      .then(([reportsRes, medsRes, trackRes, visitsRes, noticesRes]) => {
         setDashboard({
           totalReports: reportsRes.data.totalReports || 0,
           currentMedications: Array.isArray(medsRes.data) ? medsRes.data.length : 0,
@@ -50,6 +52,7 @@ export default function HomePage() {
           recentReports: reportsRes.data.recentReports || [],
         });
         setUpcomingVisits(Array.isArray(visitsRes.data) ? visitsRes.data : []);
+        setNotices(Array.isArray(noticesRes.data) ? noticesRes.data : []);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -59,6 +62,24 @@ export default function HomePage() {
   return (
     <div>
       <h2 style={{ marginBottom: 24 }}>健康概览</h2>
+
+      {/* 通知中心（4.3.4）：订阅到期/续费 + AI 额度预警 */}
+      {notices.map((n: any) => (
+        <Alert
+          key={n.type + n.title}
+          style={{ marginBottom: 12 }}
+          type={n.level === 'error' ? 'error' : 'warning'}
+          showIcon
+          banner
+          message={n.title}
+          description={n.message}
+          action={
+            <Button size="small" type="primary" onClick={() => navigate(n.actionUrl || '/membership')}>
+              {n.actionText || '查看'}
+            </Button>
+          }
+        />
+      ))}
 
       {upcomingVisits.length > 0 && (
         <Alert

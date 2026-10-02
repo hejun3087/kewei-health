@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Tag, Input, Select, DatePicker, Button, Space, Modal, Form, message } from 'antd';
-import { SearchOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Tag, Input, Select, DatePicker, Button, Space, Modal, Form, message, Typography } from 'antd';
+import { SearchOutlined, PlusOutlined, DeleteOutlined, ShareAltOutlined, CopyOutlined } from '@ant-design/icons';
 import api from '../utils/api';
 import EmptyGuide from '../components/EmptyGuide';
 import dayjs from 'dayjs';
@@ -25,6 +25,33 @@ export default function ReportsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>();
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
+  // 分享（4.3.2）：家庭版权益，非家庭版后端返回 402 由拦截器弹升级引导
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareLink, setShareLink] = useState('');
+  const [sharing, setSharing] = useState(false);
+
+  const handleShare = async (reportId: string) => {
+    setSharing(true);
+    try {
+      const res = await api.post(`/share/report/${reportId}`);
+      const link = `${window.location.origin}${res.data.path}`;
+      setShareLink(link);
+      setShareOpen(true);
+    } catch {
+      // 402/错误已由 api 拦截器统一提示
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const copyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      message.success('分享链接已复制');
+    } catch {
+      message.warning('复制失败，请手动选择链接复制');
+    }
+  };
 
   const fetchReports = () => {
     setLoading(true);
@@ -101,10 +128,11 @@ export default function ReportsPage() {
     { title: '摘要', dataIndex: 'summary', key: 'summary', ellipsis: true },
     { title: '成员', dataIndex: 'memberId', key: 'memberId', width: 80, render: (v: string) => getMemberName(v) },
     {
-      title: '操作', key: 'action', width: 120,
+      title: '操作', key: 'action', width: 200,
       render: (_: any, record: any) => (
         <Space>
           <Button type="link" size="small" onClick={() => navigate(`/reports/${record.id}`)}>详情</Button>
+          <Button type="link" size="small" icon={<ShareAltOutlined />} loading={sharing} onClick={() => handleShare(record.id)}>分享</Button>
           <Button type="link" size="small" danger onClick={() => handleDelete(record.id)}><DeleteOutlined /></Button>
         </Space>
       ),
@@ -148,6 +176,19 @@ export default function ReportsPage() {
             <Input.TextArea rows={3} placeholder="报告结论或摘要" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title="分享报告"
+        open={shareOpen}
+        onCancel={() => setShareOpen(false)}
+        footer={[
+          <Button key="close" onClick={() => setShareOpen(false)}>关闭</Button>,
+          <Button key="copy" type="primary" icon={<CopyOutlined />} onClick={copyShareLink}>复制链接</Button>,
+        ]}
+      >
+        <Typography.Paragraph type="secondary">任何持有此链接的人可只读查看该报告，链接 30 天内有效。</Typography.Paragraph>
+        <Input readOnly value={shareLink} onFocus={(e) => e.target.select()} />
       </Modal>
     </div>
   );

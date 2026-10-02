@@ -209,4 +209,81 @@ describe('MemberService', () => {
       });
     });
   });
+
+  describe('assertShareAccess 分享付费墙（4.3.2）', () => {
+    it('非家庭版（FREE）抛 402', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(makeSub({ plan: 'FREE' }));
+
+      await expect(service.assertShareAccess('u1')).rejects.toMatchObject({
+        status: HttpStatus.PAYMENT_REQUIRED,
+      });
+    });
+
+    it('标准版也不可分享（仅家庭版）', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(
+        makeSub({ plan: 'STANDARD', endDate: FUTURE }),
+      );
+
+      await expect(service.assertShareAccess('u1')).rejects.toMatchObject({
+        status: HttpStatus.PAYMENT_REQUIRED,
+      });
+    });
+
+    it('家庭版放行', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(
+        makeSub({ plan: 'FAMILY', endDate: FUTURE }),
+      );
+
+      const res = await service.assertShareAccess('u1');
+      expect(res).toMatchObject({ allowed: true, plan: 'FAMILY' });
+    });
+  });
+
+  describe('getNotifications 通知中心（4.3.4）', () => {
+    const inDays = (d: number) => new Date(NOW.getTime() + d * 24 * 3600 * 1000);
+
+    it('已到期：status=EXPIRED 推送续费提醒', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(
+        makeSub({ plan: 'FREE', status: 'EXPIRED' }),
+      );
+
+      const list = await service.getNotifications('u1');
+
+      expect(list.some((n: any) => n.type === 'expired')).toBe(true);
+    });
+
+    it('临近到期（≤30天）：推送续费提醒，≤7天为 error', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(
+        makeSub({ plan: 'STANDARD', status: 'ACTIVE', endDate: inDays(5) }),
+      );
+
+      const list = await service.getNotifications('u1');
+      const renewal = list.find((n: any) => n.type === 'renewal');
+
+      expect(renewal).toBeDefined();
+      expect(renewal.level).toBe('error');
+    });
+
+    it('AI 额度临近（≥80%）：推送预警', async () => {
+      // FREE 每月 50 次，已用 45 → 90%，未超限
+      prisma.subscription.findUnique.mockResolvedValue(
+        makeSub({ plan: 'FREE', aiUsageCount: 45 }),
+      );
+
+      const list = await service.getNotifications('u1');
+      const quota = list.find((n: any) => n.type === 'quota');
+
+      expect(quota).toBeDefined();
+      expect(quota.level).toBe('warning');
+    });
+
+    it('家庭版远离到期且不限额度：无通知', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(
+        makeSub({ plan: 'FAMILY', status: 'ACTIVE', endDate: FUTURE, aiUsageCount: 100 }),
+      );
+
+      const list = await service.getNotifications('u1');
+      expect(list).toHaveLength(0);
+    });
+  });
 });

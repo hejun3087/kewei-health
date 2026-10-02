@@ -16,6 +16,12 @@ export class MemberController {
     return this.memberService.getSubscriptionInfo(req.user.userId);
   }
 
+  @Get('notifications')
+  @ApiOperation({ summary: '通知中心（订阅到期/续费提醒 + AI 额度预警）' })
+  async getNotifications(@Request() req) {
+    return this.memberService.getNotifications(req.user.userId);
+  }
+
   @Get('plans')
   @ApiOperation({ summary: '获取全部套餐（供前端展示升级选项）' })
   listPlans() {
