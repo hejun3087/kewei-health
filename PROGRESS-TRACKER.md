@@ -215,7 +215,7 @@
 | # | 任务 | 状态 | 计划完成 | 实际完成 | 备注 |
 |---|------|------|---------|---------|------|
 | 5.1.1 | AI生成后端单元测试 | ✅ | 第16周 | 已完成 | 后端 Service 层全覆盖（11 个有逻辑的模块）：ai/auth/diagnosis/export/family-member/medication/member/report/share/upload 均有 service 单测，+ health 探活 controller 单测；共 12 套件/109 用例（含 upload 写盘+分页、health db up/down） |
-| 5.1.2 | AI生成API集成测试 | ⏳ | 第16周 | | 覆盖全部Controller层 |
+| 5.1.2 | AI生成API集成测试 | 🔵 | 第16周 | 进行中 | 已建立 supertest + @nestjs/testing e2e harness（新增 devDep：@nestjs/testing/supertest/@types/supertest）；已覆盖 health（公开探活）+ member（受保护路由：401/透传 userId/分页 query 解析）共 2 controller、6 e2e 用例；待扩展其余 controller |
 | 5.1.3 | AI生成前端组件测试 | ⏳ | 第16周 | | 覆盖核心组件 |
 | 5.1.4 | AI生成E2E测试脚本 | ✅ | 第16周 | 已完成 | server/e2e-test.ps1：覆盖报告/诊断/用药/会员核心流程 |
 | 5.1.5 | 测试覆盖率检查 | ⏳ | 第16周 | | 目标 > 80% |
@@ -344,10 +344,10 @@
 | 第二阶段：Web前端 | 23 | 21 | 1 | 1 | 91% |
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
 | 第四阶段：AI+功能 | 16 | 6 | 3 | 7 | 38% |
-| 第五阶段：测试 | 15 | 2 | 1 | 12 | 15% |
+| 第五阶段：测试 | 15 | 2 | 2 | 11 | 18% |
 | 第六阶段：合规上线 | 16 | 0 | 0 | 16 | 0% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **61** | **6** | **58** | **49%** |
+| **合计** | **125** | **61** | **7** | **57** | **49%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -388,3 +388,4 @@
 | 2026-10-02 | PDF 导出（4.3.1 收尾 ✅）：①server 新增依赖 pdfkit + @types/pdfkit；②export.service 抽取 gatherData（Excel/PDF 共用）+ resolveCjkFont（运行时探测 CJK 字体：env PDF_CJK_FONT + Win/Linux/macOS 常见路径，找不到降级内置字体不报错）+ exportHealthDataPdf（pdfkit A4，报告/明细/就诊/用药三段，fillColor/自动分页）；③export.controller 新增 GET /export/health-data/pdf（application/pdf 下载头）；④Web 首页导出按钮改 Space.Compact Excel/PDF 双选项（handleExport(format)，修正 url 变量重名）；⑤Dockerfile 生产段 apk 加 font-noto-cjk。中文渲染本地实测生成 21KB 且 FontFile 子集化嵌入；export spec +2 PDF 用例（402 前置 / %PDF 头与文件名）。全量 8 套件/89 用例全过；server/web build 全绿（JEST_ALL_EXIT=0/WEB_EXIT=0）。4.3.1 置 ✅，阶段四 31%→38%，总进度 59→60 | JackHe |
 | 2026-10-02 | user / family-member 单测（5.1.1 推进 🔵）：①新增 user.service.spec（updateProfile 的 birthDate 字符串→Date/未传不写、getUserById 剔除 password 与 null 分支、deleteAccount 软删除置 status+deletedAt）；②新增 family-member.service.spec（findAll 排序、findOne 归属、create 套餐上限 402 且不写库/birthDate 转换、update/remove 先校验归属再操作、越权抛 NotFound 不落地）。新增 2 套件/14 用例，全量 **10 套件/103 用例全过**（JEST_ALL_EXIT=0），server build 绿（BUILD_EXIT=0）。阶段五 7%→11%（5.1.1 置 🔵）；未改业务代码/Web/小程序，纯测试增量 | JackHe |
 | 2026-10-02 | upload / health 单测（5.1.1 关账 ✅）：①新增 upload.service.spec（saveImage 写盘+落库、storagePath 保留扩展名/状态 PENDING、updateStatus、findAll 分页 skip/take 与默认页，jest.mock('fs') 隔离真实 IO）；②新增 health.controller.spec（$queryRaw 成功 → ok/up、抛错 → degraded/down）。至此 **后端 Service 层单测全覆盖**（+ health controller）：全量 **12 套件/109 用例全过**（JEST EXIT=0），server build 绿（BUILD_EXIT=0）。5.1.1 置 ✅，阶段五 11%→15%，总进度 48%→49%（已完成 60→61） | JackHe |
+| 2026-10-02 | Controller 层集成测试启动（5.1.2 推进 🔵）：①server 新增 devDep @nestjs/testing + supertest + @types/supertest；②建立 supertest e2e harness（用 Test.createTestingModule 启动最小 app + setGlobalPrefix('api')，overrideGuard/mock PrismaService 避免真实 DB）；命名踩坑：jest testRegex 为 `\.spec\.ts$`，文件名需用 `.e2e.spec.ts` 而非 `.e2e-spec.ts` 才会被收集；③新增 health.e2e.spec（GET /api/health 200 ok/up & degraded/down）+ member.e2e.spec（未登录 401、notifications 透传 userId、subscription、orders 分页 query 转数字/默认 1・20）共 6 e2e 用例。全量 **14 套件/115 用例全过**，server build 绿（dist 正确排除 spec）。阶段五 15%→18%，5.1.2 置 🔵 | JackHe |
