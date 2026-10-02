@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Row, Col, Card, Statistic, List, Tag, Button, Empty, Spin, Alert, Space } from 'antd';
-import { FileTextOutlined, MedicineBoxOutlined, CloudUploadOutlined, ArrowUpOutlined, CalendarOutlined } from '@ant-design/icons';
+import { Row, Col, Card, Statistic, List, Tag, Button, Empty, Spin, Alert, Space, message } from 'antd';
+import { FileTextOutlined, MedicineBoxOutlined, CloudUploadOutlined, ArrowUpOutlined, CalendarOutlined, DownloadOutlined } from '@ant-design/icons';
 import api from '../utils/api';
 
 export default function HomePage() {
@@ -9,6 +9,31 @@ export default function HomePage() {
   const [dashboard, setDashboard] = useState<any>(null);
   const [upcomingVisits, setUpcomingVisits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  // 数据导出（4.3.1）：blob 下载，免费版由 api 拦截器弹 402 付费墙
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await api.get('/export/health-data', { responseType: 'blob' });
+      const cd = (res.headers['content-disposition'] as string) || '';
+      const match = /filename="?([^";]+)"?/i.exec(cd);
+      const filename = match ? match[1] : 'kewei-health-export.xlsx';
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      message.success('健康档案已导出');
+    } catch {
+      // 错误（含 402 付费墙）已由 api 响应拦截器统一提示
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -118,6 +143,9 @@ export default function HomePage() {
             </Button>
             <Button icon={<ArrowUpOutlined />} block size="large" style={{ marginTop: 12 }} onClick={() => navigate('/trend')}>
               趋势分析
+            </Button>
+            <Button icon={<DownloadOutlined />} block size="large" style={{ marginTop: 12 }} loading={exporting} onClick={handleExport}>
+              导出健康档案
             </Button>
           </Card>
         </Col>

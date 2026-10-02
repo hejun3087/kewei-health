@@ -12,6 +12,7 @@ export interface PlanConfig {
   aiPerMonth: number; // 每月AI识别次数，-1为不限
   maxMembers: number; // 家庭成员上限（含本人）
   storageLimit: number; // 存储空间上限（bytes）
+  canExport: boolean; // 是否可导出健康档案（标准版及以上）
   features: string[]; // 权益清单
 }
 
@@ -24,6 +25,7 @@ export const PLAN_CONFIG: Record<string, PlanConfig> = {
     aiPerMonth: 50,
     maxMembers: 1,
     storageLimit: 1 * GB,
+    canExport: false,
     features: ['基础档案存储', '趋势分析（单成员）', '每月50次AI识别'],
   },
   STANDARD: {
@@ -32,6 +34,7 @@ export const PLAN_CONFIG: Record<string, PlanConfig> = {
     aiPerMonth: 200,
     maxMembers: 5,
     storageLimit: 3 * GB,
+    canExport: true,
     features: ['每月200次AI识别', '5名家庭成员', '多成员趋势图', '数据导出'],
   },
   PROFESSIONAL: {
@@ -40,6 +43,7 @@ export const PLAN_CONFIG: Record<string, PlanConfig> = {
     aiPerMonth: UNLIMITED,
     maxMembers: 10,
     storageLimit: 10 * GB,
+    canExport: true,
     features: ['AI识别不限次', '10名家庭成员', 'AI深度解读', '10GB存储', '在线客服'],
   },
   FAMILY: {
@@ -48,6 +52,7 @@ export const PLAN_CONFIG: Record<string, PlanConfig> = {
     aiPerMonth: UNLIMITED,
     maxMembers: 10,
     storageLimit: 10 * GB,
+    canExport: true,
     features: ['专业版全部权益', '全家共享', '复诊提醒', '异常预警', '10GB存储'],
   },
 };

@@ -194,9 +194,9 @@
 
 | # | 任务 | 状态 | 计划完成 | 实际完成 | 备注 |
 |---|------|------|---------|---------|------|
-| 4.3.1 | 数据导出功能（PDF/Excel） | ⏳ | 第15周 | | 标准版及以上可用 |
+| 4.3.1 | 数据导出功能（PDF/Excel） | 🔄 | 第15周 | | Excel 导出已完成：GET /export/health-data（exceljs 聚合四表：检查报告/报告明细/就诊记录/用药记录），标准版起 canExport 权益位 + 402 付费墙，Web 首页导出按钮 blob 下载，含 4 单测（71/71 全过）；PDF 导出待做 |
 | 4.3.2 | 报告分享功能 | ⏳ | 第15周 | | 生成分享链接（家庭版） |
-| 4.3.3 | 健康预警功能 | 🔄 | 第15周 | | 复诊提醒已完成：GET /diagnoses/upcoming-visits（逾期+未来N天，daysLeft/overdue 标记）+ Web 首页 Alert + 小程序首页提醒条 + 小程序就诊列表复诊角标（基于 nextVisitDate 逾期红/临期橙）；指标异常推送待做 |
+| 4.3.3 | 健康预警功能 | 🔄 | 第15周 | | 复诊提醒已完成：GET /diagnoses/upcoming-visits（逾期+未来N天，daysLeft/overdue 标记）+ Web 首页 Alert + Web 就诊列表复诊角标 + 小程序首页提醒条 + 小程序就诊列表复诊角标（均基于 nextVisitDate 逾期红/临期橙）；指标异常推送待做 |
 | 4.3.4 | 通知系统 | ⏳ | 第15周 | | 订阅到期提醒、续费提醒 |
 | 4.3.5 | 全局功能联调 | 🔄 | 第15周 | | 本地环境端到端回归已通过；云端联调待部署后 |
 
@@ -343,11 +343,11 @@
 | 第一阶段：行政+后端 | 29 | 19 | 0 | 10 | 66% |
 | 第二阶段：Web前端 | 23 | 21 | 1 | 1 | 91% |
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
-| 第四阶段：AI+功能 | 16 | 3 | 3 | 10 | 19% |
+| 第四阶段：AI+功能 | 16 | 3 | 4 | 9 | 19% |
 | 第五阶段：测试 | 15 | 1 | 1 | 13 | 7% |
 | 第六阶段：合规上线 | 16 | 0 | 0 | 16 | 0% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **57** | **6** | **62** | **46%** |
+| **合计** | **125** | **57** | **7** | **61** | **46%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -381,3 +381,4 @@
 | 2026-09-30 | 小程序复诊提醒 + 缓存接入：①小程序首页新增复诊提醒条（复用 /diagnoses/upcoming-visits，逾期红/临期橙，点击跳就诊记录，build:mp-weixin 验证通过）；②1.3.6 ✅ @nestjs/cache-manager（内存 store 起步，预留 Redis 平滑切换）封装 AppCacheService，趋势/首页概览 getOrSet 缓存 + 版本号失效（写操作 bump），ReportService 可选注入向后兼容，新增 4 缓存单测，67/67 全过。三端构建均绿。总进度 44%→45% | JackHe |
 | 2026-10-02 | 复诊预警闭环 + echarts 瘦身：①小程序就诊列表页新增复诊待办角标（基于 nextVisitDate 客户端算逾期红/7天内橙，无需额外请求）；②1.3.6 收尾：Trend 页改 echarts/core 按需注册（LineChart+Grid+Tooltip+Canvas），卸载未用的 echarts-for-react，vendor-echarts 全量~1MB→455KB(gzip 156KB)。web/mini 构建均绿 | JackHe |
 | 2026-10-02 | 2.4.4 Web 响应式适配 ✅：MainLayout 用 Grid.useBreakpoint 做断点，<lg 侧边栏改为 Drawer+汉堡按钮（菜单桌面/移动共用一份）；首页统计卡 xs=24/sm=8、主副区 xs=24/lg=16+8 堆叠；Reports/Diagnoses/Medications 四个 Table 加 scroll.x=max-content 窄屏横向滚动。web 构建绿。阶段二 87%→91%，总进度 45%→46% | JackHe |
+| 2026-10-02 | 4.3.1 数据导出（Excel）+ Web 复诊角标：①后端新增 ExportModule（exceljs 聚合四表 GET /export/health-data），plan.config 加 canExport 权益位、MemberService.assertExportAccess 免费版抛 402 付费墙，含 4 单测（71/71 全过）；②Web 首页右侧快捷区加「导出健康档案」按钮（blob 下载，402 由 api 拦截器弹升级引导）；③4.3.3 补齐 Web 就诊列表复诊角标（基于 nextVisitDate 逾期红/今天红/7天内橙，对齐小程序）。server build/web build/71 测试全绿 | JackHe |

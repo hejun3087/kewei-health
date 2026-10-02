@@ -13,6 +13,7 @@ import { MedicationModule } from './medication/medication.module';
 import { UploadModule } from './upload/upload.module';
 import { AiModule } from './ai/ai.module';
 import { MemberModule } from './member/member.module';
+import { ExportModule } from './export/export.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { MemberModule } from './member/member.module';
     UploadModule,
     AiModule,
     MemberModule,
+    ExportModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

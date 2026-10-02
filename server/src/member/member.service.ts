@@ -192,6 +192,21 @@ export class MemberService {
   }
 
   /**
+   * 数据导出权益校验（4.3.1）：标准版及以上可用，免费版抛 402（付费墙）。
+   */
+  async assertExportAccess(userId: string) {
+    const sub = await this.getOrCreate(userId);
+    const cfg = PLAN_CONFIG[sub.plan as keyof typeof PLAN_CONFIG];
+    if (!cfg.canExport) {
+      throw new HttpException(
+        '数据导出为标准版及以上权益，升级套餐后可一键导出全部健康档案',
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+    return { allowed: true, plan: sub.plan };
+  }
+
+  /**
    * 家庭成员配额校验，返回当前套餐允许的上限。
    */
   async getMemberLimit(userId: string): Promise<number> {

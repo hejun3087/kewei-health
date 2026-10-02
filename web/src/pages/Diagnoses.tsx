@@ -57,12 +57,39 @@ export default function DiagnosesPage() {
     });
   };
 
+  // 复诊状态（基于 nextVisitDate 客户端计算，对齐小程序：逾期/今天红、7天内橙）
+  const visitStatus = (nextVisitDate?: string | null) => {
+    if (!nextVisitDate) return null;
+    const target = new Date(nextVisitDate);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const t = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+    const diff = Math.round((t.getTime() - today.getTime()) / 86400000);
+    if (diff < 0) return { label: `已逾期 ${-diff} 天`, color: 'red' };
+    if (diff === 0) return { label: '今天复诊', color: 'red' };
+    if (diff <= 7) return { label: `${diff} 天后复诊`, color: 'orange' };
+    return null;
+  };
+
   const columns = [
     { title: '就诊日期', dataIndex: 'visitDate', key: 'visitDate', width: 120, render: (v: string) => v?.slice(0, 10) },
     { title: '医院', dataIndex: 'hospital', key: 'hospital', render: (v: string) => v || '-' },
     { title: '科室', dataIndex: 'department', key: 'department', width: 100, render: (v: string) => v || '-' },
     { title: '诊断', dataIndex: 'diagnosisText', key: 'diagnosisText', ellipsis: true },
     { title: '医嘱', dataIndex: 'advice', key: 'advice', ellipsis: true },
+    {
+      title: '下次复诊', dataIndex: 'nextVisitDate', key: 'nextVisitDate', width: 150,
+      render: (v: string) => {
+        if (!v) return '-';
+        const st = visitStatus(v);
+        return (
+          <Space direction="vertical" size={0}>
+            <span>{v.slice(0, 10)}</span>
+            {st && <Tag color={st.color} style={{ marginTop: 2 }}>{st.label}</Tag>}
+          </Space>
+        );
+      },
+    },
     {
       title: '操作', key: 'action', width: 140,
       render: (_: any, record: any) => (
