@@ -33,6 +33,10 @@
 
       <!-- 识别结果 -->
       <view v-if="step === 2 && aiResult" class="result">
+        <view class="disclaimer">
+          <text class="disclaimer-title">⚠ AI 识别结果仅供参考，不构成医学诊断</text>
+          <text class="disclaimer-text">请逐项核对后再保存；识别可能有误，如有异常或疑问请及时咨询专业医生。</text>
+        </view>
         <view class="result-header">
           <text class="tag tag-blue">{{ aiResult.categoryL1 }}</text>
           <text v-if="aiResult.categoryL2" class="tag">{{ aiResult.categoryL2 }}</text>
@@ -186,6 +190,9 @@ const reset = () => {
 .processing-text { font-size: 32rpx; color: #333; display: block; margin-bottom: 16rpx; }
 .processing-hint { font-size: 26rpx; color: #999; }
 .result-header { display: flex; align-items: center; margin-bottom: 20rpx; }
+.disclaimer { background: #fffbe6; border: 1rpx solid #ffe58f; border-radius: 12rpx; padding: 20rpx 24rpx; margin-bottom: 24rpx; display: flex; flex-direction: column; gap: 8rpx; }
+.disclaimer-title { font-size: 26rpx; color: #ad6800; font-weight: 600; }
+.disclaimer-text { font-size: 24rpx; color: #8c6d1f; line-height: 1.5; }
 .confidence { font-size: 24rpx; color: #faad14; margin-left: auto; }
 .result-info { margin-bottom: 24rpx; }
 .info-row { font-size: 26rpx; color: #666; display: block; margin-bottom: 8rpx; }

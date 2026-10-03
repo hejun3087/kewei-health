@@ -30,6 +30,11 @@
           <view class="form-picker">{{ ['男','女'][genderIndex] }} ▾</view>
         </picker>
       </view>
+      <view class="consent-tip">您正在录入他人（家庭成员）的个人健康信息，请确保已征得该成员本人同意；若其为未满十四周岁未成年人或无民事行为能力人，需征得其监护人同意。</view>
+      <view class="consent-row" @tap="consented = !consented">
+        <text :class="['consent-box', consented ? 'consent-checked' : '']">{{ consented ? '✓' : '' }}</text>
+        <text class="consent-label">我确认已获得该成员本人（或其监护人）的授权，代其录入并管理健康信息。</text>
+      </view>
       <button class="btn-primary add-btn" @tap="addMember" :disabled="submitting || !form.name">
         {{ submitting ? '提交中...' : '添加成员' }}
       </button>
@@ -57,6 +62,7 @@ const members = ref<any[]>([]);
 const relIndex = ref(0);
 const genderIndex = ref(0);
 const submitting = ref(false);
+const consented = ref(false); // PIA R-5：录入他人健康信息需授权二次确认
 const form = reactive({ name: '' });
 
 const load = async () => {
@@ -68,6 +74,10 @@ onShow(load);
 
 const addMember = async () => {
   if (!form.name) return;
+  if (!consented.value) {
+    uni.showToast({ title: '请先确认已获本人/监护人授权', icon: 'none' });
+    return;
+  }
   submitting.value = true;
   try {
     await memberApi.create({
@@ -77,6 +87,7 @@ const addMember = async () => {
     });
     uni.showToast({ title: '已添加', icon: 'success' });
     form.name = '';
+    consented.value = false;
     await load();
   } catch (e) {
     // 请求层已 toast（含套餐成员上限拦截）
@@ -97,4 +108,9 @@ const addMember = async () => {
 .form-input { flex: 1; border: 1rpx solid #e8e8e8; border-radius: 12rpx; padding: 16rpx 20rpx; font-size: 28rpx; }
 .form-picker { flex: 1; border: 1rpx solid #e8e8e8; border-radius: 12rpx; padding: 16rpx 20rpx; font-size: 28rpx; color: #1677ff; }
 .add-btn { margin-top: 10rpx; }
+.consent-tip { background: #e6f4ff; border: 1rpx solid #91caff; border-radius: 12rpx; padding: 18rpx 22rpx; font-size: 24rpx; color: #0958d9; line-height: 1.5; margin-bottom: 20rpx; }
+.consent-row { display: flex; align-items: flex-start; gap: 14rpx; margin-bottom: 24rpx; }
+.consent-box { flex-shrink: 0; width: 36rpx; height: 36rpx; line-height: 36rpx; text-align: center; border: 2rpx solid #d9d9d9; border-radius: 8rpx; font-size: 26rpx; color: #fff; margin-top: 2rpx; }
+.consent-checked { background: #1677ff; border-color: #1677ff; }
+.consent-label { flex: 1; font-size: 26rpx; color: #333; line-height: 1.5; }
 </style>
