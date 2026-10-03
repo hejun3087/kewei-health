@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Form, Input, Select, Button, message, Descriptions, Modal, List, Tag, Space } from 'antd';
+import { Card, Form, Input, Select, Button, message, Descriptions, Modal, List, Tag, Space, Alert, Checkbox } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
@@ -59,12 +59,13 @@ export default function ProfilePage() {
   };
 
   const handleAddMember = async (values: any) => {
+    const { consent, ...payload } = values; // consent 仅为前端授权确认勾选项，不提交后端
     try {
       if (editingMember) {
-        await api.put(`/family-members/${editingMember.id}`, values);
+        await api.put(`/family-members/${editingMember.id}`, payload);
         message.success('成员信息已更新');
       } else {
-        await api.post('/family-members', values);
+        await api.post('/family-members', payload);
         message.success('家庭成员已添加');
       }
       setMemberModalOpen(false);
@@ -182,6 +183,26 @@ export default function ProfilePage() {
           <Form.Item name="birthDate" label="出生日期">
             <Input type="date" />
           </Form.Item>
+          {!editingMember && (
+            <>
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 12 }}
+                message="您正在录入他人（家庭成员）的个人健康信息"
+                description="请确保已征得该成员本人同意；若其为未满十四周岁未成年人或无民事行为能力人，需征得其监护人同意。"
+              />
+              <Form.Item
+                name="consent"
+                valuePropName="checked"
+                rules={[{ validator: (_, v) => (v ? Promise.resolve() : Promise.reject(new Error('请先确认已获本人/监护人授权'))) }]}
+              >
+                <Checkbox>
+                  我确认已获得该成员本人（或其监护人）的授权，代其录入并管理健康信息。
+                </Checkbox>
+              </Form.Item>
+            </>
+          )}
         </Form>
       </Modal>
     </div>

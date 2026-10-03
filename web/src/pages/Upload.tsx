@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Upload, Button, message, Steps, Table, Tag, Select, Space } from 'antd';
+import { Card, Upload, Button, message, Steps, Table, Tag, Select, Space, Alert } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import api from '../utils/api';
 
@@ -149,6 +149,13 @@ export default function UploadPage() {
             </Space>
           }
         >
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message="AI 识别结果仅供参考，不构成医学诊断"
+            description="请逐项核对后再保存；识别可能有误，如有异常或疑问请及时咨询专业医生。"
+          />
           <div style={{ marginBottom: 16 }}>
             {aiResult.categoryL1 && <Tag color="blue">{aiResult.categoryL1}</Tag>}
             {aiResult.categoryL2 && <Tag>{aiResult.categoryL2}</Tag>}
