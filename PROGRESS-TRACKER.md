@@ -262,7 +262,7 @@
 | 6.1.5 | 个人信息保护影响评估（PIA） | ✅ | 第19周 | 已完成 | **已产出** `PIA-REPORT.md`（PIPL 第55/56 条三要素）：处理活动范围/合法性正当性必要性/对个人权益影响与风险（R-1~R-9）/已有控制（经代码核验：bcrypt/限流/JWT scope/userId 隔离/软删除+注销/密钥 fail-fast）**与差距**（健康数据 AES-256 静态加密未落地→R-2/6.1.6；无数据访问审计日志→R-3/6.1.7；敏感信息单独同意交互待确认→R-1）/剩余风险评级/整改优先级。结论：**有条件通过**，P0 未完成前不具备上线。未改代码 |
 | 6.1.6 | 数据加密验证 | ⏳ | 第19周 | | 确认健康数据AES-256加密 |
 | 6.1.7 | 审计日志验证 | ⏳ | 第19周 | | 确认全部数据访问有日志 |
-| 6.1.8 | 用户注销+数据删除功能验证 |  | 第19周 | | 合规要求 |
+| 6.1.8 | 用户注销+数据删除功能验证 | ✅ | 第19周 | 已完成 | 代码核验：`DELETE /user/account` → `deleteAccount` 置 `status=DELETED`+`deletedAt`（软删除）；各数据查询均按 userId 隔离且过滤 `deletedAt:null`；schema 子关系 `onDelete: Cascade`。**发现并修复真实缺陷**：三个登录入口（loginByPhone/Password/Wechat）**未校验 status**，已注销/禁用账号仍可登录并重获访问权——新增 `assertActive()` 在签发 token 前拒绝非 ACTIVE 账号（DELETED→“账号已注销”/DISABLED→“账号已被禁用”），补 3 单测（auth.service 13→16 用例）；后端 27 套件/182 用例全绿。**遗留**：注销后健康数据的**物理清除/匿名化**未实现（仅软删）→归入 PIA R-9，待补定时硬删除策略 |
 
 ### 6.2 正式上线（第20周）
 
@@ -345,9 +345,9 @@
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
 | 第四阶段：AI+功能 | 16 | 6 | 3 | 7 | 38% |
 | 第五阶段：测试 | 15 | 7 | 1 | 7 | 43% |
-| 第六阶段：合规上线 | 16 | 1 | 2 | 13 | 6% |
+| 第六阶段：合规上线 | 16 | 2 | 2 | 12 | 13% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **67** | **8** | **50** | **54%** |
+| **合计** | **125** | **68** | **8** | **49** | **54%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -399,3 +399,4 @@
 | 2026-10-03 | 前端测试扩面（承接 5.1.3，登录态与 API 拦截器）：新增 2 份逻辑测试共 13 用例——① `web/src/utils/api.test.ts`（6）：直取 `api.interceptors.*.handlers[0]` 回调避免真实网络，测请求拦截附 Authorization/无 token 不附、响应错误 401 清登录态+跳转 /login、**402 弹付费墙且并发去重**（spy Modal.confirm 不调 afterClose 以保留 paywallShown）、其他码提示后端 message、无响应提示网络错误；② `web/src/contexts/AuthContext.test.tsx`（7）：`vi.mock('../utils/api')` + `renderHook`/`waitFor`，测无token无缓存不请求/无token但本地有缓存直回填/有token 拉 /auth/me 回填写缓存//auth/me 失败清态/login 写 localStorage/logout 清理/无 Provider 返回默认上下文。踩坑：jsdom 下 `window.location.href` 赋值会报 navigation 错，用 `Object.defineProperty(window,'location',{value:{href:''},writable,configurable})` 接管断言；测前先 `localStorage.setItem('token')` 再 renderHook（useState 初始化即读）。前端 **5 文件/20 用例全绿**（VITEST=0）、web build 绿（WEBBUILD=0，tsc 已排除测试）。自动化合计 30→32 文件/186→199 用例，TEST-REPORT.md 同步刷新（含修正一处误写“兑底页”→“兜底页”）。任务状态不变（5.1.3 仍 ✅） | JackHe |
 | 2026-10-03 | 阶段六合规文本初稿（开新阶段，6.1.2/6.1.3 → 🔄）：基于 `COMPLIANCE-ANALYSIS.md` 与 Prisma schema 实际字段，产出两份中文初稿——① `PRIVACY-POLICY.md`（隐私政策 13 章）：重点覆盖健康数据=敏感个人信息的**单独同意**、**境内存储不出境**（AI 仅用境内 OCR）、AES-256 存储加密 + 等保三级、用户权利（查阅/导出/更正/删除/撤回同意/注销/拒自动化决策/死者近亲属）、**家庭成员（他人）数据需用户保证已获授权**、未成年人、PIA/DPO 联系渠道、安全事件处置；② `USER-AGREEMENT.md`（用户协议 15 章）：**“非医疗机构/不提供诊疗”定性与免责**、120 紧急提示、AI 结果仅供参考、他人数据授权保证、自动续费/退款/发票、知识产权、责任限制、变更/终止、法律适用与管辖。两文均顶部标注“初稿·待律师审核”、【】占位主体/邮箱/日期。**因需律师审核方可上线，按实置 🔄 不虚标 ✅**。阶段六 0%→（进行中 2 项），合计进行中 6→8。未改代码，纯文档 | JackHe |
 | 2026-10-03 | 个人信息保护影响评估 PIA（6.1.5 关账 ✅）：先 grep 核验后端真实实现再写报告，避免把未落地措施写进去。已实现：bcryptjs(cost10)+返回剔 password、全局 ThrottlerGuard 60/分+登录/注册5・AI10・上传20・share view30 收紧、JWT scope 隔离+jwt.strategy 拒 share 作登录凭证、userId 归属隔离、软删除 deletedAt+注销 status=DELETED、resolveJwtSecret fail-fast、境内供应商不出境。差距（如实标注）：健康数据字段 PostgreSQL 明文存、无 AES-256 静态加密（R-2→6.1.6）；仅零散应用 Logger、无数据访问审计日志（R-3→6.1.7）；敏感信息单独同意交互待确认（R-1）。产出 `PIA-REPORT.md`（PIPL 第55/56 三要素）：处理活动范围/合法性正当必要性/风险 R-1~R-9/已有控制与差距/剩余风险评级矩阵/整改优先级（P0 三项★阻断上线）。结论**有条件通过**。6.1.5 置 ✅（评估报告为本地可交付物），阶段六 0%→6%，已完成 66→67（总进度 53%→54%） | JackHe |
+| 2026-10-03 | 用户注销+数据删除功能验证（6.1.8 关账 ✅，发现并修复安全缺陷）：核 `DELETE /user/account`→`deleteAccount` 软删（status=DELETED+deletedAt）、各查询 userId 隔离+过滤 deletedAt:null、schema 子关系 onDelete:Cascade。**发现真实缺陷**：`auth.service` 三个登录入口（loginByPhone/loginByPassword/loginByWechat）均**未校验 status**，已注销/禁用用户 findUnique 命中后照样签发 token → 注销形同虚设（且 loginByPhone 查到 DELETED 用户不走建档分支、直接返回带 token）。修复：新增私有 `assertActive(user)`，非 ACTIVE 抛 401（DELETED→“账号已注销，无法登录”/其他非 ACTIVE→“账号已被禁用”），在三个登录入口 sign 前统一调用（自动建档新用户默认 ACTIVE 不受影响）。补 3 单测（DELETED 拒登/DISABLED 密码对仍拒/微信 DELETED 拒且均不 sign）：auth.service.spec 13→16 用例。本地实跑：全量 `jest --coverage` **27 套件/182 用例全绿**（JEST=0，门禁达阈），总覆盖率 89.01%→89.07% Stmts（auth 96.15%→96.38%、auth.service.ts 100% Stmts）。TEST-REPORT 同步（合计 199→202 用例）。阶段六 6%→13%，已完成 67→68。**遗留**（不属本任务，据实标注）：注销后健康数据仅软删、物理清除/匿名化未实现→归入 PIA R-9，待后续补定时硬删策略 | JackHe |

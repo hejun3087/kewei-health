@@ -141,6 +141,27 @@ describe('AuthService', () => {
     });
   });
 
+  describe('账号状态校验（6.1.8 注销/禁用不得登录）', () => {
+    it('loginByPhone：已注销(DELETED)手机号被拒绝，不签发 token', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser({ status: 'DELETED' }));
+      await expect(service.loginByPhone('13800001234')).rejects.toThrow('账号已注销，无法登录');
+      expect(jwtService.sign).not.toHaveBeenCalled();
+    });
+
+    it('loginByPassword：密码正确但账号被禁用(DISABLED)仍被拒绝', async () => {
+      const hash = await bcrypt.hash('secret123', 10);
+      prisma.user.findUnique.mockResolvedValue(baseUser({ password: hash, status: 'DISABLED' }));
+      await expect(service.loginByPassword('13800001234', 'secret123')).rejects.toThrow('账号已被禁用');
+      expect(jwtService.sign).not.toHaveBeenCalled();
+    });
+
+    it('loginByWechat：已注销的微信账号被拒绝', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser({ status: 'DELETED' }));
+      await expect(service.loginByWechat('abc123')).rejects.toThrow(UnauthorizedException);
+      expect(jwtService.sign).not.toHaveBeenCalled();
+    });
+  });
+
   describe('validateUser', () => {
     it('ACTIVE 用户通过且剥离 password', async () => {
       prisma.user.findUnique.mockResolvedValue(baseUser({ password: 'hash' }));

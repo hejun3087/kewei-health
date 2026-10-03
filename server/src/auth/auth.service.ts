@@ -10,6 +10,15 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  /** 账号状态校验：非 ACTIVE（已注销 DELETED / 已禁用 DISABLED）不得登录，确保注销后无法重新获取访问权（合规 6.1.8） */
+  private assertActive(user: { status?: string }) {
+    if (user.status && user.status !== 'ACTIVE') {
+      throw new UnauthorizedException(
+        user.status === 'DELETED' ? '账号已注销，无法登录' : '账号已被禁用',
+      );
+    }
+  }
+
   // 手机号 + 验证码登录（简化版：验证码暂不实现，直接用手机号注册/登录）
   async loginByPhone(phone: string) {
     let user = await this.prisma.user.findUnique({ where: { phone } });
@@ -33,6 +42,7 @@ export class AuthService {
       });
     }
 
+    this.assertActive(user);
     const token = this.jwtService.sign({ sub: user.id, phone: user.phone });
     return { token, user: this.sanitizeUser(user) };
   }
@@ -49,6 +59,7 @@ export class AuthService {
       throw new UnauthorizedException('手机号或密码错误');
     }
 
+    this.assertActive(user);
     const token = this.jwtService.sign({ sub: user.id, phone: user.phone });
     return { token, user: this.sanitizeUser(user) };
   }
@@ -102,6 +113,7 @@ export class AuthService {
       });
     }
 
+    this.assertActive(user);
     const token = this.jwtService.sign({ sub: user.id });
     return { token, user: this.sanitizeUser(user) };
   }

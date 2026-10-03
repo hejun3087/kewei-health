@@ -7,10 +7,10 @@
 
 | 层级 | 框架 | 套件 / 文件 | 用例数 | 结果 |
 |------|------|-----------|--------|------|
-| 后端单元测试（Service/Controller） | Jest + ts-jest | 15 | 126 | ✅ 全过 |
+| 后端单元测试（Service/Controller） | Jest + ts-jest | 15 | 129 | ✅ 全过 |
 | 后端接口集成测试（HTTP 层） | supertest + @nestjs/testing | 12 | 53 | ✅ 全过 |
 | 前端组件测试 | Vitest + @testing-library/react + jsdom | 5 | 20 | ✅ 全过 |
-| **合计（自动化）** | | **32** | **199** | ✅ **全绿** |
+| **合计（自动化）** | | **32** | **202** | ✅ **全绿** |
 | 前后端契约回归 | `server/e2e-test.ps1`（需运行中的服务 + DB） | — | 报告/诊断/用药/会员主流程 | ⏸ 需部署环境手动执行 |
 | 微信小程序 | 无自动化测试脚本 | 0 | 0 | — 仅 `build:mp-weixin` 编译校验 |
 
@@ -20,12 +20,12 @@
 
 ## 二、后端覆盖率（Jest --coverage，门禁 Stmts/Lines ≥ 80%）
 
-**总计：89.01% Stmts ｜ 70.2% Branch ｜ 83.97% Funcs ｜ 89.48% Lines** —— 达成阶段目标（>80%），门禁通过。
+**总计：89.07% Stmts ｜ 70.66% Branch ｜ 84.06% Funcs ｜ 89.55% Lines** —— 达成阶段目标（>80%），门禁通过。
 
 | 模块 | Stmts | 模块 | Stmts |
 |------|-------|------|-------|
 | health | 100% | common | 100% |
-| auth | 96.15% | share | 100% |
+| auth | 96.38% | share | 100% |
 | family-member | 97.5% | medication | 97.77% |
 | diagnosis | 96.72% | upload | 94.73% |
 | report | 90.21% | export | 84.17% |
