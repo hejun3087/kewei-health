@@ -9,8 +9,8 @@
 |------|------|-----------|--------|------|
 | 后端单元测试（Service/Controller） | Jest + ts-jest | 15 | 126 | ✅ 全过 |
 | 后端接口集成测试（HTTP 层） | supertest + @nestjs/testing | 12 | 53 | ✅ 全过 |
-| 前端组件测试 | Vitest + @testing-library/react + jsdom | 3 | 7 | ✅ 全过 |
-| **合计（自动化）** | | **30** | **186** | ✅ **全绿** |
+| 前端组件测试 | Vitest + @testing-library/react + jsdom | 5 | 20 | ✅ 全过 |
+| **合计（自动化）** | | **32** | **199** | ✅ **全绿** |
 | 前后端契约回归 | `server/e2e-test.ps1`（需运行中的服务 + DB） | — | 报告/诊断/用药/会员主流程 | ⏸ 需部署环境手动执行 |
 | 微信小程序 | 无自动化测试脚本 | 0 | 0 | — 仅 `build:mp-weixin` 编译校验 |
 
@@ -32,13 +32,15 @@
 | member | 79.36% | prisma | 71.42% |
 | ai | 67.18% | | |
 
-## 三、前端组件测试（Vitest）
+## 三、前端测试（Vitest）
 
-覆盖 3 个核心组件，共 7 用例：
+覆盖 5 个模块，共 20 用例：
 
 - **EmptyGuide**（列表空态引导）：描述文案渲染 / 默认按钮「去添加」/ 自定义 actionText / 点击触发 onAction
 - **ErrorBoundary**（全局错误边界）：正常时渲染 children / 子组件抛错时渲染兜底页（含错误信息 + 刷新/返回按钮）
 - **NotFound**（404 页）：MemoryRouter 下渲染 404 文案与返回按钮
+- **utils/api**（拦截器，6 用例）：请求拦截附 Authorization / 无 token 不附；响应错误 401 清登录态+跳转 /login、402 弹付费墙且并发去重、其他状态码提示后端 message、无响应提示网络错误
+- **AuthContext**（登录态 Provider + useAuth，7 用例）：无 token 无缓存不请求、无 token 但本地有缓存直接回填、有 token 拉 /auth/me 回填并写缓存、/auth/me 失败清态、login 写 localStorage、logout 清理、无 Provider 时返回默认上下文
 
 > 未启用 V8/istanbul 覆盖率采集（前端以行为断言为主）。
 
@@ -57,6 +59,6 @@
 
 ## 五、结论
 
-- 后端 Service 层与 Controller HTTP 层已建立完整自动化测试（186 用例全绿），覆盖率门禁固化进配置，随 CI 持续守护。
-- 前端组件测试基建从零建成并接入 CI，覆盖关键展示与容错组件。
+- 后端 Service 层与 Controller HTTP 层已建立完整自动化测试（199 用例全绿），覆盖率门禁固化进配置，随 CI 持续守护。
+- 前端测试基建从零建成并接入 CI，覆盖关键展示/容错组件与核心业务逻辑（登录态 Context + API 拦截器）。
 - 阶段五「自动化测试脚本」（5.1.x）与「全面测试执行」的安全审计（5.2.3）均已关账；余下性能/兼容性/真机/契约联调类依赖外部运行环境，待部署后推进。
