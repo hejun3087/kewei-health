@@ -4,12 +4,13 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
+import { resolveJwtSecret } from '../common/jwt-config';
 
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'kewei-health-jwt-secret-2026',
+      secret: resolveJwtSecret(),
       signOptions: { expiresIn: '7d' },
     }),
   ],

@@ -226,7 +226,7 @@
 |---|------|------|---------|---------|------|
 | 5.2.1 | 运行全部自动化测试 | ⏳ | 第17周 | | 查看测试报告 |
 | 5.2.2 | AI辅助Bug修复 | ⏳ | 第17周 | | AI分析错误日志 + 生成修复方案 |
-| 5.2.3 | 安全测试（AI代码审计） | ⏳ | 第17周 | | 检测常见安全漏洞 |
+| 5.2.3 | 安全测试（AI代码审计） | ✅ | 第17周 | 已完成 | 后端全量安全审计（零新依赖）：✅ SQL 注入（仅 health 静态 `$queryRaw\`SELECT 1\``，无插值）；✅ 鉴权覆盖（11/12 controller 有 `@UseGuards(JwtAuthGuard)`，health 公开探活符合预期）；✅ 越权/归属（report/medication/diagnosis/family-member/upload/share 均按 userId 限定，写操作先 findOne 校验）；✅ 路径穿越（ai 用 `path.basename`、upload 随机文件名）；✅ share token（验签+scope+归属，jwt.strategy 拒绝 share 作登录凭证）；✅ 限流/密码/日志/CORS。**高危修复 1 项**：JWT 兜底密钥硬编码（jwt.strategy + auth.module）——新增 `common/jwt-config.ts::resolveJwtSecret()`，生产未设 JWT_SECRET 则 fail-fast 拒启、非生产兼容并告警（含 3 单测）。全量 25 套件/165 用例、build 绿。待办：.env.example 模板、真机/云端渗透测试 |
 | 5.2.4 | 性能测试 |  | 第17周 | | 并发测试 + 慢查询优化 |
 | 5.2.5 | 兼容性测试 |  | 第17周 | | Chrome/Firefox/Safari/Edge + iOS/Android微信 |
 
@@ -344,10 +344,10 @@
 | 第二阶段：Web前端 | 23 | 21 | 1 | 1 | 91% |
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
 | 第四阶段：AI+功能 | 16 | 6 | 3 | 7 | 38% |
-| 第五阶段：测试 | 15 | 4 | 1 | 10 | 31% |
+| 第五阶段：测试 | 15 | 5 | 1 | 9 | 35% |
 | 第六阶段：合规上线 | 16 | 0 | 0 | 16 | 0% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **63** | **6** | **56** | **50%** |
+| **合计** | **125** | **64** | **6** | **55** | **51%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -392,3 +392,4 @@
 | 2026-10-02 | Controller e2e 扩展（5.1.2 推进 🔵）：沿用已建立范式新增 4 份 e2e —— auth（login/phone、register、me 未登录 401/登录 200）、share（生成链接、免登录查看、token 失效 404）、report（未登录 401、列表 query 透传、search 优先于 :id 的路由顺序、findOne、create body、remove）、upload（multipart+FileInterceptor 上传 png 命中 saveImage、401）。共 +4 套件/17 用例，全量 **18 套件/132 用例全过**（JEST=0），server build 绿（BUILD_EXIT=0）。e2e 累计覆盖 6 controller/23 用例；阶段五 18%→22% | JackHe |
 | 2026-10-02 | Controller e2e 收尾（5.1.2 关账 ✅）：沿用范式新增 6 份 e2e 覆盖剩余 controller —— diagnosis（401/query/upcoming-visits 静态路由优先与 days 转数字/默认 7/CRUD）、medication（401/current 静态路由/CRUD）、user（profile GET/PUT/DELETE account）、family-member（仅透传 userId/402 上限透传/CRUD）、export（@Res 下载头 content-type/content-disposition/content-length、401、402）、ai（recognize 默认 type=report 与 prescription 透传、401）。至此 **12 个 controller 全有 e2e（共 53 用例）**。踩坑：superagent 不将未知二进制 content-type 的 body 解析为 Buffer，改用 content-length 断言。全量 **24 套件/162 用例全过**，server build 绿（BUILD_EXIT=0）。5.1.2 置 ✅，阶段五 22%→27%，总进度 49%→50%（已完成 61→62） | JackHe |
 | 2026-10-02 | 测试覆盖率门禁（5.1.5 关账 ✅）：①全量 jest --coverage 采集基线 —— 后端 **84.87% Stmts / 85.22% Lines / 66.14% Branch / 77.22% Funcs**，达成阶段目标 >80%（Stmts/Lines）；②jest.config.js 固化 collectCoverageFrom（纳入 src 全部 TS，排除 spec/e2e/module/main）+ coverageThreshold 门禁（Stmts/Lines≥80、Funcs≥75、Branch≥60 取当前值下取整留安全余量防抖动）；③package.json 新增 `test:cov` 脚本（`test` 保持不采集覆盖率，不影响现有 CI）；④跑 test:cov 验证门禁通过（JEST=0，24 套件/162 用例）。短板定位：ai.service 59%（依赖外部百度 OCR 密钥）、prisma.service onInit（需真实 DB）、member.controller 65%（次要分支）——业务主链路均已覆盖。5.1.5 置 ✅，阶段五 27%→31%，已完成 62→63 | JackHe |
+| 2026-10-03 | 安全测试代码审计（5.2.3 关账 ✅）：对后端做全量常见漏洞审计（零新依赖）。结果均安全：①无 SQL 注入（仅 health 静态 `$queryRaw\`SELECT 1\``）；②鉴权全覆盖（11/12 controller `@UseGuards(JwtAuthGuard)`，health 公开探活除外）；③无越权（report/medication/diagnosis/family-member/upload/share 均按 userId 限定，写操作先 findOne 校归属）；④无路径穿越（ai `path.basename`、upload 随机名）；⑤share token 验签+scope+归属，jwt.strategy 拒 share 作登录凭证；⑥bcrypt(10)+密码脱敏+登录/注册 5・分限流+探活豁免+登录错误不抹账号存在性；⑦`.env.production`/`server/.env` 均在 .gitignore（密钥不落仓库）。**修复 1 个高危项**：JWT 兜底密钥硬编码（`process.env.JWT_SECRET \|\| '默认值'`，仓库可见）——若生产漏配可被伪造 token。新增 `server/src/common/jwt-config.ts::resolveJwtSecret()`：有 JWT_SECRET 那么用、生产缺失 fail-fast 抛错拒启、非生产兜底+告警；jwt.strategy + auth.module 改调用。新增 jwt-config.spec（3 用例）。全量 **25 套件/165 用例全过**（JEST=0），server build 绿（dist 含 jwt-config.js、排除 spec）。5.2.3 置 ✅，阶段五 31%→35%，已完成 63→64 | JackHe |
