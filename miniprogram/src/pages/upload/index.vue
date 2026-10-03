@@ -75,6 +75,7 @@
 import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { uploadApi, reportApi, memberApi } from '../../utils/api';
+import { requestSensitiveConsent } from '../../utils/consent';
 
 const step = ref(0);
 const aiResult = ref<any>(null);
@@ -131,6 +132,12 @@ const saveResult = async () => {
   const member = members.value[memberIndex.value];
   if (!member) {
     uni.showToast({ title: '请选择成员', icon: 'none' });
+    return;
+  }
+  // PIA R-1：首次录入健康数据前需敏感个人信息单独同意
+  const consented = await requestSensitiveConsent();
+  if (!consented) {
+    uni.showToast({ title: '未同意，无法保存健康数据', icon: 'none' });
     return;
   }
   saving.value = true;

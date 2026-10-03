@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, Upload, Button, message, Steps, Table, Tag, Select, Space, Alert } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import api from '../utils/api';
+import HealthDataConsentModal, { useSensitiveConsentGate } from '../components/HealthDataConsentModal';
 
 const { Dragger } = Upload;
 
@@ -11,6 +12,7 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [memberId, setMemberId] = useState<string>();
+  const gate = useSensitiveConsentGate(); // PIA R-1：首次录入健康数据前单独同意
 
   useEffect(() => {
     api.get('/family-members').then((res) => {
@@ -57,7 +59,7 @@ export default function UploadPage() {
     return false;
   };
 
-  const handleSave = async () => {
+  const doSave = async () => {
     if (!memberId) {
       message.warning('请选择家庭成员');
       return;
@@ -80,6 +82,15 @@ export default function UploadPage() {
     } catch {
       // 拦截器处理
     }
+  };
+
+  // 保存前先过“敏感个人信息单独同意”闸门（已同意则直接保存）
+  const handleSave = () => gate.request(() => {
+    void doSave();
+  });
+  const handleDecline = () => {
+    gate.decline();
+    message.info('未同意，无法保存健康数据');
   };
 
   const titleText =
@@ -186,6 +197,8 @@ export default function UploadPage() {
           )}
         </Card>
       )}
+
+      <HealthDataConsentModal open={gate.open} onAgree={gate.agree} onDecline={handleDecline} />
     </div>
   );
 }

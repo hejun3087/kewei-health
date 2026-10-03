@@ -3,6 +3,7 @@ import { Card, Form, Input, Select, Button, message, Descriptions, Modal, List, 
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
+import HealthDataConsentModal, { useSensitiveConsentGate } from '../components/HealthDataConsentModal';
 
 const relationOptions = [
   { value: 'SELF', label: '本人' },
@@ -26,6 +27,7 @@ export default function ProfilePage() {
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
   const [memberForm] = Form.useForm();
+  const gate = useSensitiveConsentGate(); // PIA R-1：保存含健康字段前单独同意
 
   useEffect(() => {
     if (user) {
@@ -50,12 +52,21 @@ export default function ProfilePage() {
     }).catch(() => {});
   };
 
-  const handleSaveProfile = async (values: any) => {
+  const doSaveProfile = async (values: any) => {
     try {
       await api.put('/user/profile', values);
       message.success('个人信息已保存');
       refreshUser();
     } catch {}
+  };
+
+  // 个人信息含过敏史/慢性病史等敏感健康字段，保存前先过单独同意闸门
+  const handleSaveProfile = (values: any) => gate.request(() => {
+    void doSaveProfile(values);
+  });
+  const handleDecline = () => {
+    gate.decline();
+    message.info('未同意，无法保存健康信息');
   };
 
   const handleAddMember = async (values: any) => {
@@ -205,6 +216,8 @@ export default function ProfilePage() {
           )}
         </Form>
       </Modal>
+
+      <HealthDataConsentModal open={gate.open} onAgree={gate.agree} onDecline={handleDecline} />
     </div>
   );
 }
