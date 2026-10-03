@@ -1,6 +1,6 @@
 # ============================================
 # 可为健康 - CI/CD 流水线
-# push / PR：三端构建 + 后端单测
+# push / PR：三端构建 + 后端单测 + Web 组件测试
 # master：额外验证 Docker 镜像构建（不推送）
 # ============================================
 name: CI
@@ -39,6 +39,9 @@ jobs:
 
       - name: 后端单元测试
         run: npm test -w server
+
+      - name: Web 前端组件测试（Vitest）
+        run: npm test -w web
 
   docker:
     name: Docker 镜像构建验证

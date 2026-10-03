@@ -216,7 +216,7 @@
 |---|------|------|---------|---------|------|
 | 5.1.1 | AI生成后端单元测试 | ✅ | 第16周 | 已完成 | 后端 Service 层全覆盖（11 个有逻辑的模块）：ai/auth/diagnosis/export/family-member/medication/member/report/share/upload 均有 service 单测，+ health 探活 controller 单测；共 12 套件/109 用例（含 upload 写盘+分页、health db up/down） |
 | 5.1.2 | AI生成API集成测试 | ✅ | 第16周 | 已完成 | supertest + @nestjs/testing e2e harness 覆盖 **全部 12 个 controller**（health/member/auth/share/report/upload/diagnosis/medication/user/family-member/export/ai），共 **53 e2e 用例**：验证全局前缀 /api、JwtAuthGuard（401）、静态路由优先于 :id、query/body 透传、分页与 days 转数字、multipart 上传、导出下载头、share token 404、免费/上限 402；mock Prisma/Service 零真实 DB |
-| 5.1.3 | AI生成前端组件测试 | ⏳ | 第16周 | | 覆盖核心组件 |
+| 5.1.3 | AI生成前端组件测试 | ✅ | 第16周 | 已完成 | Web 端新建 Vitest 基建（vitest@1 + @testing-library/react@14 + jest-dom + jsdom + user-event）；独立 `web/vitest.config.ts`（environment=jsdom、globals、@ 别名），`setup-tests.ts` 预置 jest-dom/vitest + matchMedia/ResizeObserver polyfill（antd 依赖）；tsconfig 排除测试使 `tsc && vite build` 不受影响；覆盖 3 核心组件共 7 用例：EmptyGuide（描述/默认与自定义按钮文案/点击回调）、ErrorBoundary（正常渲染 children / 抛错兑底页含错误信息与按钮）、NotFound（MemoryRouter 下 404 文案与返回按钮）；踩坑：带图标按钮可访问名含 aria-label（如 "plus 去添加"），用正则子串匹配。已接入 CI（`npm test -w web`），3 文件/7 用例全过、web build 绿 |
 | 5.1.4 | AI生成E2E测试脚本 | ✅ | 第16周 | 已完成 | server/e2e-test.ps1：覆盖报告/诊断/用药/会员核心流程 |
 | 5.1.5 | 测试覆盖率检查 | ✅ | 第16周 | 已完成 | jest --coverage 基线：后端 **84.87% Stmts / 85.22% Lines**（达成 >80% 目标），Branch 66.14%、Funcs 77.22%；jest.config.js 固化 collectCoverageFrom（排除 spec/e2e/module/main）+ coverageThreshold 门禁（Stmts/Lines≥80、Funcs≥75、Branch≥60 留安全余量）；package.json 新增 `test:cov` 脚本；短板为 ai.service(59%,需外部 OCR 密钥)、prisma.service(onInit 需真实 DB)、member.controller(65%,次要分支)，业务主链路均已覆盖 |
 
@@ -344,10 +344,10 @@
 | 第二阶段：Web前端 | 23 | 21 | 1 | 1 | 91% |
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
 | 第四阶段：AI+功能 | 16 | 6 | 3 | 7 | 38% |
-| 第五阶段：测试 | 15 | 5 | 1 | 9 | 35% |
+| 第五阶段：测试 | 15 | 6 | 1 | 8 | 39% |
 | 第六阶段：合规上线 | 16 | 0 | 0 | 16 | 0% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **64** | **6** | **55** | **51%** |
+| **合计** | **125** | **65** | **6** | **54** | **52%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -393,3 +393,4 @@
 | 2026-10-02 | Controller e2e 收尾（5.1.2 关账 ✅）：沿用范式新增 6 份 e2e 覆盖剩余 controller —— diagnosis（401/query/upcoming-visits 静态路由优先与 days 转数字/默认 7/CRUD）、medication（401/current 静态路由/CRUD）、user（profile GET/PUT/DELETE account）、family-member（仅透传 userId/402 上限透传/CRUD）、export（@Res 下载头 content-type/content-disposition/content-length、401、402）、ai（recognize 默认 type=report 与 prescription 透传、401）。至此 **12 个 controller 全有 e2e（共 53 用例）**。踩坑：superagent 不将未知二进制 content-type 的 body 解析为 Buffer，改用 content-length 断言。全量 **24 套件/162 用例全过**，server build 绿（BUILD_EXIT=0）。5.1.2 置 ✅，阶段五 22%→27%，总进度 49%→50%（已完成 61→62） | JackHe |
 | 2026-10-02 | 测试覆盖率门禁（5.1.5 关账 ✅）：①全量 jest --coverage 采集基线 —— 后端 **84.87% Stmts / 85.22% Lines / 66.14% Branch / 77.22% Funcs**，达成阶段目标 >80%（Stmts/Lines）；②jest.config.js 固化 collectCoverageFrom（纳入 src 全部 TS，排除 spec/e2e/module/main）+ coverageThreshold 门禁（Stmts/Lines≥80、Funcs≥75、Branch≥60 取当前值下取整留安全余量防抖动）；③package.json 新增 `test:cov` 脚本（`test` 保持不采集覆盖率，不影响现有 CI）；④跑 test:cov 验证门禁通过（JEST=0，24 套件/162 用例）。短板定位：ai.service 59%（依赖外部百度 OCR 密钥）、prisma.service onInit（需真实 DB）、member.controller 65%（次要分支）——业务主链路均已覆盖。5.1.5 置 ✅，阶段五 27%→31%，已完成 62→63 | JackHe |
 | 2026-10-03 | 安全测试代码审计（5.2.3 关账 ✅）：对后端做全量常见漏洞审计（零新依赖）。结果均安全：①无 SQL 注入（仅 health 静态 `$queryRaw\`SELECT 1\``）；②鉴权全覆盖（11/12 controller `@UseGuards(JwtAuthGuard)`，health 公开探活除外）；③无越权（report/medication/diagnosis/family-member/upload/share 均按 userId 限定，写操作先 findOne 校归属）；④无路径穿越（ai `path.basename`、upload 随机名）；⑤share token 验签+scope+归属，jwt.strategy 拒 share 作登录凭证；⑥bcrypt(10)+密码脱敏+登录/注册 5・分限流+探活豁免+登录错误不抹账号存在性；⑦`.env.production`/`server/.env` 均在 .gitignore（密钥不落仓库）。**修复 1 个高危项**：JWT 兜底密钥硬编码（`process.env.JWT_SECRET \|\| '默认值'`，仓库可见）——若生产漏配可被伪造 token。新增 `server/src/common/jwt-config.ts::resolveJwtSecret()`：有 JWT_SECRET 那么用、生产缺失 fail-fast 抛错拒启、非生产兜底+告警；jwt.strategy + auth.module 改调用。新增 jwt-config.spec（3 用例）。全量 **25 套件/165 用例全过**（JEST=0），server build 绿（dist 含 jwt-config.js、排除 spec）。5.2.3 置 ✅，阶段五 31%→35%，已完成 63→64 | JackHe |
+| 2026-10-03 | 前端组件测试基建与核心组件覆盖（5.1.3 关账 ✅，至此 5.1 自动化测试脚本全绿）：①web 新增 devDep vitest@1.6 + jsdom@24 + @testing-library/react@14 + jest-dom@6 + user-event@14（-w web --legacy-peer-deps）；②新建 `web/vitest.config.ts`（独立于 vite.config、environment=jsdom、globals、@ 别名）与 `web/src/setup-tests.ts`（jest-dom/vitest + matchMedia/ResizeObserver polyfill 供 antd）；tsconfig 排除 `*.test/*.spec/setup-tests` 使 `tsc && vite build` 与测试解耦；package.json 新增 `test`(vitest run)/`test:watch`；③新增 3 份组件测共 7 用例：EmptyGuide（描述渲染/默认「去添加」/自定义文案/点击回调）、ErrorBoundary（正常渲染 children/抛错兑底页含错误信息与两个按钮）、NotFound（MemoryRouter 下 404 文案与返回首页/上一页）。踩坑：带图标按钮可访问名含图标 aria-label（"plus 去添加"），getByRole name 改正则 `/去添加/`。本地 vitest 3 文件/7 用例全过（VITEST_EXIT=0）、web build 绿（WEB_BUILD_EXIT=0）；④接入 CI（ci.yml 后端单测后新增 `npm test -w web`）。5.1.3 置 ✅，阶段五 35%→39%，已完成 64→65（总进度 51%→52%） | JackHe |
