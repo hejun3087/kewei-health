@@ -1,6 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
+import { encryptField } from '../common/crypto/encryption';
 
 describe('AuthService', () => {
   let prisma: any;
@@ -190,6 +191,20 @@ describe('AuthService', () => {
       expect(res.user.storageUsed).toBe('1024');
       expect(res.user.storageLimit).toBe('1073741824');
       expect(() => JSON.stringify(res.user)).not.toThrow();
+    });
+
+    it('静态解密（PIA R-2）：库中密文经登录返回为明文，存量明文原样透传', async () => {
+      prisma.user.findUnique.mockResolvedValue(
+        baseUser({
+          allergyHistory: encryptField('青霉素过敏'),
+          medicalHistory: '存量明文病史',
+        }),
+      );
+
+      const res = await service.loginByPhone('13800001234');
+
+      expect(res.user.allergyHistory).toBe('青霉素过敏');
+      expect(res.user.medicalHistory).toBe('存量明文病史');
     });
   });
 });

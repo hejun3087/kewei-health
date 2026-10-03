@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { decryptField } from '../common/crypto/encryption';
 
 @Injectable()
 export class AuthService {
@@ -132,6 +133,9 @@ export class AuthService {
     // BigInt 转 String，避免 JSON 序列化报错
     return {
       ...result,
+      // 敏感健康字段静态解密（PIA R-2）后返回：登录/刷新//auth/me 统一走此收敛点
+      allergyHistory: decryptField(result.allergyHistory),
+      medicalHistory: decryptField(result.medicalHistory),
       storageUsed: result.storageUsed?.toString() || '0',
       storageLimit: result.storageLimit?.toString() || '1073741824',
     };
