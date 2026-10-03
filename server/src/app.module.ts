@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AppCacheModule } from './common/cache.module';
+import { AuditModule } from './audit/audit.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
@@ -22,6 +23,7 @@ import { ShareModule } from './share/share.module';
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60000, limit: 60 }] }),
     PrismaModule,
     AppCacheModule,
+    AuditModule,
     HealthModule,
     AuthModule,
     UserModule,

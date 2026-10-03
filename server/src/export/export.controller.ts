@@ -3,11 +3,13 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { Response } from 'express';
 import { ExportService } from './export.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Audit } from '../audit/audit.decorator';
 
 @ApiTags('数据导出')
 @Controller('export')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
+@Audit('HEALTH_DATA', 'EXPORT') // 整包导出全量健康数据，强制记为 EXPORT（6.1.7）
 export class ExportController {
   constructor(private exportService: ExportService) {}
 

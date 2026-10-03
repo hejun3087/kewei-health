@@ -2,11 +2,13 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Requ
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MedicationService } from './medication.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Audit } from '../audit/audit.decorator';
 
 @ApiTags('用药记录')
 @Controller('medications')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
+@Audit('MEDICATION') // 健康数据读写留痕（6.1.7）
 export class MedicationController {
   constructor(private medicationService: MedicationService) {}
 

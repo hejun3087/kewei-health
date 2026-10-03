@@ -2,11 +2,13 @@ import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request } f
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FamilyMemberService } from './family-member.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Audit } from '../audit/audit.decorator';
 
 @ApiTags('家庭成员')
 @Controller('family-members')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
+@Audit('FAMILY_MEMBER') // 涉及他人个人信息，读写留痕（6.1.7）
 export class FamilyMemberController {
   constructor(private familyMemberService: FamilyMemberService) {}
 

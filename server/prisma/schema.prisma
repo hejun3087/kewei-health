@@ -387,3 +387,23 @@ enum OrderStatus {
   FAILED     // 支付失败
   REFUNDED   // 已退款
 }
+
+// ==================== 审计日志 ====================
+
+/// 数据访问审计日志（PIPL / 等保三级：健康数据读写留痕，6.1.7）
+/// 独立表，不建 User 外键，保证注销/删除后审计记录仍留存；userId 可空以容纳分享只读访问
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String?  // 操作者（登录用户；分享免登录访问可为空）
+  action       String   // READ / CREATE / UPDATE / DELETE / EXPORT / SHARE_VIEW
+  resourceType String   // REPORT / DIAGNOSIS / MEDICATION / FAMILY_MEMBER / UPLOAD / USER / HEALTH_DATA
+  resourceId   String?  // 资源主键（列表类读取可空）
+  ip           String?  // 客户端 IP
+  userAgent    String?  // User-Agent
+  success      Boolean  @default(true) // 业务是否成功（失败也留痕以便追溯越权尝试）
+  meta         Json?    // 附加信息（脱敏摘要，如 memberId、命中条数）
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([resourceType, resourceId])
+}

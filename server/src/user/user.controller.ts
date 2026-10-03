@@ -2,11 +2,13 @@ import { Controller, Get, Put, Body, UseGuards, Request, Delete } from '@nestjs/
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Audit } from '../audit/audit.decorator';
 
 @ApiTags('用户')
 @Controller('user')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
+@Audit('USER') // 个人档案读/改/注销留痕（6.1.7）
 export class UserController {
   constructor(private userService: UserService) {}
 

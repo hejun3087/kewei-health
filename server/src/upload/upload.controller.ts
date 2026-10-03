@@ -4,11 +4,13 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { UploadService } from './upload.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Audit } from '../audit/audit.decorator';
 
 @ApiTags('文件上传')
 @Controller('upload')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
+@Audit('UPLOAD') // 原始报告文件读写留痕（6.1.7）
 export class UploadController {
   constructor(private uploadService: UploadService) {}
 

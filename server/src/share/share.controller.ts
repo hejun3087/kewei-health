@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ShareService } from './share.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Audit } from '../audit/audit.decorator';
 
 @ApiTags('报告分享')
 @Controller('share')
@@ -18,6 +19,7 @@ export class ShareController {
   }
 
   @Get('view/:token')
+  @Audit('REPORT', 'SHARE_VIEW') // 免登录对外访问健康报告，必须留痕（6.1.7）
   @Throttle({ default: { limit: 30, ttl: 60000 } }) // 免登录接口，收紧限流防 token 爆破
   @ApiOperation({ summary: '凭分享 token 免登录只读查看报告' })
   view(@Param('token') token: string) {
