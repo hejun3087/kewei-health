@@ -224,7 +224,7 @@
 
 | # | 任务 | 状态 | 计划完成 | 实际完成 | 备注 |
 |---|------|------|---------|---------|------|
-| 5.2.1 | 运行全部自动化测试 | ⏳ | 第17周 | | 查看测试报告 |
+| 5.2.1 | 运行全部自动化测试 | ✅ | 第17周 | 已完成 | 全量实跑并产出 `TEST-REPORT.md`：后端 13 单测套件/112 用例 + 12 e2e 套件/53 用例、覆盖率 84.93% Stmts/85.27% Lines（门禁过）；前端 Vitest 3 文件/7 用例；**自动化合计 28 套件/172 用例全绿**（本地 + CI）。已记录缺口：jwt.strategy 0%、app-cache.service 17.85%、member.controller 65%、ai.service 真实 OCR 分支（待密钥）、小程序无自动化；契约 e2e/性能/兼容性需部署环境手动执行 |
 | 5.2.2 | AI辅助Bug修复 | ⏳ | 第17周 | | AI分析错误日志 + 生成修复方案 |
 | 5.2.3 | 安全测试（AI代码审计） | ✅ | 第17周 | 已完成 | 后端全量安全审计（零新依赖）：✅ SQL 注入（仅 health 静态 `$queryRaw\`SELECT 1\``，无插值）；✅ 鉴权覆盖（11/12 controller 有 `@UseGuards(JwtAuthGuard)`，health 公开探活符合预期）；✅ 越权/归属（report/medication/diagnosis/family-member/upload/share 均按 userId 限定，写操作先 findOne 校验）；✅ 路径穿越（ai 用 `path.basename`、upload 随机文件名）；✅ share token（验签+scope+归属，jwt.strategy 拒绝 share 作登录凭证）；✅ 限流/密码/日志/CORS。**高危修复 1 项**：JWT 兜底密钥硬编码（jwt.strategy + auth.module）——新增 `common/jwt-config.ts::resolveJwtSecret()`，生产未设 JWT_SECRET 则 fail-fast 拒启、非生产兼容并告警（含 3 单测）。全量 25 套件/165 用例、build 绿。待办：.env.example 模板、真机/云端渗透测试 |
 | 5.2.4 | 性能测试 |  | 第17周 | | 并发测试 + 慢查询优化 |
@@ -344,10 +344,10 @@
 | 第二阶段：Web前端 | 23 | 21 | 1 | 1 | 91% |
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
 | 第四阶段：AI+功能 | 16 | 6 | 3 | 7 | 38% |
-| 第五阶段：测试 | 15 | 6 | 1 | 8 | 39% |
+| 第五阶段：测试 | 15 | 7 | 1 | 7 | 43% |
 | 第六阶段：合规上线 | 16 | 0 | 0 | 16 | 0% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **65** | **6** | **54** | **52%** |
+| **合计** | **125** | **66** | **6** | **53** | **53%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -394,3 +394,4 @@
 | 2026-10-02 | 测试覆盖率门禁（5.1.5 关账 ✅）：①全量 jest --coverage 采集基线 —— 后端 **84.87% Stmts / 85.22% Lines / 66.14% Branch / 77.22% Funcs**，达成阶段目标 >80%（Stmts/Lines）；②jest.config.js 固化 collectCoverageFrom（纳入 src 全部 TS，排除 spec/e2e/module/main）+ coverageThreshold 门禁（Stmts/Lines≥80、Funcs≥75、Branch≥60 取当前值下取整留安全余量防抖动）；③package.json 新增 `test:cov` 脚本（`test` 保持不采集覆盖率，不影响现有 CI）；④跑 test:cov 验证门禁通过（JEST=0，24 套件/162 用例）。短板定位：ai.service 59%（依赖外部百度 OCR 密钥）、prisma.service onInit（需真实 DB）、member.controller 65%（次要分支）——业务主链路均已覆盖。5.1.5 置 ✅，阶段五 27%→31%，已完成 62→63 | JackHe |
 | 2026-10-03 | 安全测试代码审计（5.2.3 关账 ✅）：对后端做全量常见漏洞审计（零新依赖）。结果均安全：①无 SQL 注入（仅 health 静态 `$queryRaw\`SELECT 1\``）；②鉴权全覆盖（11/12 controller `@UseGuards(JwtAuthGuard)`，health 公开探活除外）；③无越权（report/medication/diagnosis/family-member/upload/share 均按 userId 限定，写操作先 findOne 校归属）；④无路径穿越（ai `path.basename`、upload 随机名）；⑤share token 验签+scope+归属，jwt.strategy 拒 share 作登录凭证；⑥bcrypt(10)+密码脱敏+登录/注册 5・分限流+探活豁免+登录错误不抹账号存在性；⑦`.env.production`/`server/.env` 均在 .gitignore（密钥不落仓库）。**修复 1 个高危项**：JWT 兜底密钥硬编码（`process.env.JWT_SECRET \|\| '默认值'`，仓库可见）——若生产漏配可被伪造 token。新增 `server/src/common/jwt-config.ts::resolveJwtSecret()`：有 JWT_SECRET 那么用、生产缺失 fail-fast 抛错拒启、非生产兜底+告警；jwt.strategy + auth.module 改调用。新增 jwt-config.spec（3 用例）。全量 **25 套件/165 用例全过**（JEST=0），server build 绿（dist 含 jwt-config.js、排除 spec）。5.2.3 置 ✅，阶段五 31%→35%，已完成 63→64 | JackHe |
 | 2026-10-03 | 前端组件测试基建与核心组件覆盖（5.1.3 关账 ✅，至此 5.1 自动化测试脚本全绿）：①web 新增 devDep vitest@1.6 + jsdom@24 + @testing-library/react@14 + jest-dom@6 + user-event@14（-w web --legacy-peer-deps）；②新建 `web/vitest.config.ts`（独立于 vite.config、environment=jsdom、globals、@ 别名）与 `web/src/setup-tests.ts`（jest-dom/vitest + matchMedia/ResizeObserver polyfill 供 antd）；tsconfig 排除 `*.test/*.spec/setup-tests` 使 `tsc && vite build` 与测试解耦；package.json 新增 `test`(vitest run)/`test:watch`；③新增 3 份组件测共 7 用例：EmptyGuide（描述渲染/默认「去添加」/自定义文案/点击回调）、ErrorBoundary（正常渲染 children/抛错兑底页含错误信息与两个按钮）、NotFound（MemoryRouter 下 404 文案与返回首页/上一页）。踩坑：带图标按钮可访问名含图标 aria-label（"plus 去添加"），getByRole name 改正则 `/去添加/`。本地 vitest 3 文件/7 用例全过（VITEST_EXIT=0）、web build 绿（WEB_BUILD_EXIT=0）；④接入 CI（ci.yml 后端单测后新增 `npm test -w web`）。5.1.3 置 ✅，阶段五 35%→39%，已完成 64→65（总进度 51%→52%） | JackHe |
+| 2026-10-03 | 全量自动化测试执行与报告（5.2.1 关账 ✅）：本地实跑采集权威数据——后端 `jest --coverage` **25 套件/165 用例全过**（JEST=0，门禁达阈）、覆盖率 **84.93% Stmts/66.83% Branch/77.34% Funcs/85.27% Lines**（较 5.1.5 基线 +0.06pt，jwt-config.ts 满覆盖拉升）；拆分：13 单测套件/112 用例 + 12 e2e 套件/53 用例。前端 `vitest run` **3 文件/7 用例全过**（VITEST=0）。新增 `TEST-REPORT.md` 汇总：执行总览/后端分模块覆盖率/前端组件清单/缺口（jwt.strategy 0%、app-cache.service 17.85%、member.controller 65%、ai.service 真实 OCR 分支待密钥、小程序无自动化、契约 e2e/性能/兼容性需部署环境）。未改业务/测试代码，纯执行+报告。5.2.1 置 ✅，阶段五 39%→43%，已完成 65→66（总进度 52%→53%） | JackHe |
