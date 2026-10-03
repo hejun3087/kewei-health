@@ -259,7 +259,7 @@
 | 6.1.2 | 隐私政策终稿（律师审核） | 🔄 | 第19周 | | **初稿已产出** `PRIVACY-POLICY.md`（13 章，盖 PIPL 敏感个人信息单独同意/境内不出境/AES-256+等保三级/用户权利/家庭成员他人数据授权/未成年人/PIA 与 DPO 联系），【】占位待填，**待执业律师审核定稿** |
 | 6.1.3 | 用户协议终稿 | 🔄 | 第19周 | | **初稿已产出** `USER-AGREEMENT.md`（15 章，含非医疗服务定性与免责声明/AI 结果仅供参考/他人数据授权保证/自动续费与退款/责任限制/管辖），**待执业律师审核定稿** |
 | 6.1.4 | 等保测评启动（如预算允许） | ⏳ | 第19周 | | 联系测评机构 |
-| 6.1.5 | 个人信息保护影响评估（PIA） | ⏳ | 第19周 | | AI辅助生成评估报告 |
+| 6.1.5 | 个人信息保护影响评估（PIA） | ✅ | 第19周 | 已完成 | **已产出** `PIA-REPORT.md`（PIPL 第55/56 条三要素）：处理活动范围/合法性正当性必要性/对个人权益影响与风险（R-1~R-9）/已有控制（经代码核验：bcrypt/限流/JWT scope/userId 隔离/软删除+注销/密钥 fail-fast）**与差距**（健康数据 AES-256 静态加密未落地→R-2/6.1.6；无数据访问审计日志→R-3/6.1.7；敏感信息单独同意交互待确认→R-1）/剩余风险评级/整改优先级。结论：**有条件通过**，P0 未完成前不具备上线。未改代码 |
 | 6.1.6 | 数据加密验证 | ⏳ | 第19周 | | 确认健康数据AES-256加密 |
 | 6.1.7 | 审计日志验证 | ⏳ | 第19周 | | 确认全部数据访问有日志 |
 | 6.1.8 | 用户注销+数据删除功能验证 |  | 第19周 | | 合规要求 |
@@ -345,9 +345,9 @@
 | 第三阶段：小程序 | 18 | 13 | 1 | 4 | 72% |
 | 第四阶段：AI+功能 | 16 | 6 | 3 | 7 | 38% |
 | 第五阶段：测试 | 15 | 7 | 1 | 7 | 43% |
-| 第六阶段：合规上线 | 16 | 0 | 2 | 14 | 0% |
+| 第六阶段：合规上线 | 16 | 1 | 2 | 13 | 6% |
 | 第七阶段：运营迭代 | 8 | 0 | 0 | 8 | 0% |
-| **合计** | **125** | **66** | **8** | **51** | **53%** |
+| **合计** | **125** | **67** | **8** | **50** | **54%** |
 
 > 注：任务总数按各阶段实际行重新盘点（含 1.1 行政 8 项）；开发主体（后端/Web/小程序）已基本完成，当前重心转向支付对接、真机测试与云部署。
 
@@ -398,3 +398,4 @@
 | 2026-10-03 | 自动化测试缺口收敛（承接 5.2.1）：针对 TEST-REPORT 点名的两块低覆盖补单测——① `auth/jwt.strategy.spec.ts`（3 用例：Object.create 绕 passport 构造直接测 validate，share scope 拒绝/登录返回 {userId,phone}/仅 sub token phone=undefined）；② `common/app-cache.service.spec.ts`（11 用例：Map 版内存 FakeCache 测 version 默认0/bump 递增与用户隔离/buildKey 参键排序与过滤空值/getOrSet 命中回填与 bump 后失效重算/get·set 透传）。新增 2 套件/14 用例：后端 **27 套件/179 用例全绿**（JEST=0，门禁达阈），总覆盖率 **84.93%→89.01% Stmts / 85.27%→89.48% Lines / 66.83%→70.2% Branch / 77.34%→83.97% Funcs**；app-cache.service 17.85%→100%、jwt.strategy 0%→90.9%（仅剩构造器注册行）、common 目录 37.83%→100%、auth 83.33%→96.15%。server build 绿（dist 含 app-cache.service.js、spec 未泄漏）。同步刷新 TEST-REPORT.md（合计 28→30 套件/172→186 用例）。任务状态不变（5.2.1 仍 ✅），属质量收敛 | JackHe |
 | 2026-10-03 | 前端测试扩面（承接 5.1.3，登录态与 API 拦截器）：新增 2 份逻辑测试共 13 用例——① `web/src/utils/api.test.ts`（6）：直取 `api.interceptors.*.handlers[0]` 回调避免真实网络，测请求拦截附 Authorization/无 token 不附、响应错误 401 清登录态+跳转 /login、**402 弹付费墙且并发去重**（spy Modal.confirm 不调 afterClose 以保留 paywallShown）、其他码提示后端 message、无响应提示网络错误；② `web/src/contexts/AuthContext.test.tsx`（7）：`vi.mock('../utils/api')` + `renderHook`/`waitFor`，测无token无缓存不请求/无token但本地有缓存直回填/有token 拉 /auth/me 回填写缓存//auth/me 失败清态/login 写 localStorage/logout 清理/无 Provider 返回默认上下文。踩坑：jsdom 下 `window.location.href` 赋值会报 navigation 错，用 `Object.defineProperty(window,'location',{value:{href:''},writable,configurable})` 接管断言；测前先 `localStorage.setItem('token')` 再 renderHook（useState 初始化即读）。前端 **5 文件/20 用例全绿**（VITEST=0）、web build 绿（WEBBUILD=0，tsc 已排除测试）。自动化合计 30→32 文件/186→199 用例，TEST-REPORT.md 同步刷新（含修正一处误写“兑底页”→“兜底页”）。任务状态不变（5.1.3 仍 ✅） | JackHe |
 | 2026-10-03 | 阶段六合规文本初稿（开新阶段，6.1.2/6.1.3 → 🔄）：基于 `COMPLIANCE-ANALYSIS.md` 与 Prisma schema 实际字段，产出两份中文初稿——① `PRIVACY-POLICY.md`（隐私政策 13 章）：重点覆盖健康数据=敏感个人信息的**单独同意**、**境内存储不出境**（AI 仅用境内 OCR）、AES-256 存储加密 + 等保三级、用户权利（查阅/导出/更正/删除/撤回同意/注销/拒自动化决策/死者近亲属）、**家庭成员（他人）数据需用户保证已获授权**、未成年人、PIA/DPO 联系渠道、安全事件处置；② `USER-AGREEMENT.md`（用户协议 15 章）：**“非医疗机构/不提供诊疗”定性与免责**、120 紧急提示、AI 结果仅供参考、他人数据授权保证、自动续费/退款/发票、知识产权、责任限制、变更/终止、法律适用与管辖。两文均顶部标注“初稿·待律师审核”、【】占位主体/邮箱/日期。**因需律师审核方可上线，按实置 🔄 不虚标 ✅**。阶段六 0%→（进行中 2 项），合计进行中 6→8。未改代码，纯文档 | JackHe |
+| 2026-10-03 | 个人信息保护影响评估 PIA（6.1.5 关账 ✅）：先 grep 核验后端真实实现再写报告，避免把未落地措施写进去。已实现：bcryptjs(cost10)+返回剔 password、全局 ThrottlerGuard 60/分+登录/注册5・AI10・上传20・share view30 收紧、JWT scope 隔离+jwt.strategy 拒 share 作登录凭证、userId 归属隔离、软删除 deletedAt+注销 status=DELETED、resolveJwtSecret fail-fast、境内供应商不出境。差距（如实标注）：健康数据字段 PostgreSQL 明文存、无 AES-256 静态加密（R-2→6.1.6）；仅零散应用 Logger、无数据访问审计日志（R-3→6.1.7）；敏感信息单独同意交互待确认（R-1）。产出 `PIA-REPORT.md`（PIPL 第55/56 三要素）：处理活动范围/合法性正当必要性/风险 R-1~R-9/已有控制与差距/剩余风险评级矩阵/整改优先级（P0 三项★阻断上线）。结论**有条件通过**。6.1.5 置 ✅（评估报告为本地可交付物），阶段六 0%→6%，已完成 66→67（总进度 53%→54%） | JackHe |
