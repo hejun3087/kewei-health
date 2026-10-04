@@ -12,6 +12,7 @@ import {
   SolutionOutlined,
   CrownOutlined,
   ShareAltOutlined,
+  HistoryOutlined,
   MenuOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,6 +28,7 @@ const menuItems = [
   { key: '/upload', icon: <CloudUploadOutlined />, label: '上传报告' },
   { key: '/membership', icon: <CrownOutlined />, label: '会员中心' },
   { key: '/shares', icon: <ShareAltOutlined />, label: '我的分享' },
+  { key: '/access-records', icon: <HistoryOutlined />, label: '访问记录' },
   { key: '/profile', icon: <UserOutlined />, label: '个人中心' },
 ];
 
