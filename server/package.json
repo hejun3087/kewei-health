@@ -12,7 +12,8 @@
     "test:watch": "jest --watch",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "db:backfill-encrypt": "ts-node src/scripts/backfill-encryption.ts"
   },
   "dependencies": {
     "@nestjs/cache-manager": "^2.2.2",

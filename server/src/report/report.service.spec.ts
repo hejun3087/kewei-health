@@ -174,7 +174,7 @@ describe('ReportService', () => {
   });
 
   describe('search', () => {
-    it('按医院/摘要/指标名 OR 模糊匹配，限定本人且未删除，上限 50 条', async () => {
+    it('按医院/指标名 OR 模糊匹配（summary 已加密不再参与 DB 搜索），限定本人且未删除，上限 50 条', async () => {
       prisma.report.findMany.mockResolvedValue([]);
 
       await service.search(USER_ID, '协和');
@@ -182,7 +182,9 @@ describe('ReportService', () => {
       const arg = prisma.report.findMany.mock.calls[0][0];
       expect(arg.where.userId).toBe(USER_ID);
       expect(arg.where.deletedAt).toBeNull();
-      expect(arg.where.OR).toHaveLength(3);
+      // summary 已静态加密（PIA R-2），从可搜索 OR 中移除，仅剩医院 + 指标名两项
+      expect(arg.where.OR).toHaveLength(2);
+      expect(JSON.stringify(arg.where.OR)).not.toContain('summary');
       expect(arg.take).toBe(50);
     });
   });

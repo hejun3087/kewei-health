@@ -209,7 +209,8 @@ export class ReportService {
         deletedAt: null,
         OR: [
           { hospital: { contains: keyword, mode: 'insensitive' } },
-          { summary: { contains: keyword, mode: 'insensitive' } },
+          // summary 已应用层静态加密（PIA R-2 / 6.1.6），落库为密文，无法再做 DB 模糊匹配，
+          // 故从可搜索字段移除（返回结果仍会经中间件解密为明文正常展示）。
           { items: { some: { name: { contains: keyword, mode: 'insensitive' } } } },
         ],
       },

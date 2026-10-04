@@ -12,6 +12,7 @@ module.exports = {
     '!**/*.e2e.spec.ts',
     '!**/*.module.ts',
     '!**/main.ts',
+    '!**/scripts/**',
     '!**/node_modules/**',
   ],
   // 覆盖率门禁（5.1.5）：仅在收集覆盖率时生效，锁定后端测试质量基线
