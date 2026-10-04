@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { AppCacheModule } from './common/cache.module';
 import { AuditModule } from './audit/audit.module';
@@ -16,11 +17,14 @@ import { AiModule } from './ai/ai.module';
 import { MemberModule } from './member/member.module';
 import { ExportModule } from './export/export.module';
 import { ShareModule } from './share/share.module';
+import { RetentionModule } from './retention/retention.module';
 
 @Module({
   imports: [
     // 安全加固（1.3.7）：全局限流，默认每 IP 60 次/分钟；敏感接口用 @Throttle 收紧
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60000, limit: 60 }] }),
+    // 定时任务调度（PIA R-9）：驱动数据保留期到期清理等 @Cron 任务
+    ScheduleModule.forRoot(),
     PrismaModule,
     AppCacheModule,
     AuditModule,
@@ -36,6 +40,7 @@ import { ShareModule } from './share/share.module';
     MemberModule,
     ExportModule,
     ShareModule,
+    RetentionModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
