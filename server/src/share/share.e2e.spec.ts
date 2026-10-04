@@ -10,6 +10,8 @@ describe('ShareController (e2e)', () => {
   const shareService = {
     createShareLink: jest.fn(),
     getSharedReport: jest.fn(),
+    listMyShareLinks: jest.fn(),
+    revokeShareLink: jest.fn(),
   };
   let authed = true;
 
@@ -38,14 +40,15 @@ describe('ShareController (e2e)', () => {
 
   afterEach(async () => await app.close());
 
-  it('POST /api/share/report/:reportId 透传 userId + reportId 生成链接', async () => {
+  it('POST /api/share/report/:reportId 透传 userId + reportId + body.expiresInDays 生成链接', async () => {
     shareService.createShareLink.mockResolvedValue({ path: '/share/report/tok' });
 
     const res = await request(app.getHttpServer())
       .post('/api/share/report/r1')
+      .send({ expiresInDays: 7 })
       .expect(201);
 
-    expect(shareService.createShareLink).toHaveBeenCalledWith('u1', 'r1');
+    expect(shareService.createShareLink).toHaveBeenCalledWith('u1', 'r1', 7);
     expect(res.body).toEqual({ path: '/share/report/tok' });
   });
 
@@ -68,5 +71,35 @@ describe('ShareController (e2e)', () => {
     shareService.getSharedReport.mockRejectedValue(new NotFoundException('链接已失效'));
 
     await request(app.getHttpServer()).get('/api/share/view/bad').expect(404);
+  });
+
+  it('GET /api/share/my 透传 userId 与 reportId 过滤', async () => {
+    shareService.listMyShareLinks.mockResolvedValue([{ shareId: 's1', active: true }]);
+
+    const res = await request(app.getHttpServer()).get('/api/share/my?reportId=r1').expect(200);
+
+    expect(shareService.listMyShareLinks).toHaveBeenCalledWith('u1', 'r1');
+    expect(res.body).toEqual([{ shareId: 's1', active: true }]);
+  });
+
+  it('GET /api/share/my 未登录返回 401', async () => {
+    authed = false;
+    await request(app.getHttpServer()).get('/api/share/my').expect(401);
+    expect(shareService.listMyShareLinks).not.toHaveBeenCalled();
+  });
+
+  it('DELETE /api/share/:shareId 撤销透传 userId + shareId', async () => {
+    shareService.revokeShareLink.mockResolvedValue({ shareId: 's1', revoked: true });
+
+    const res = await request(app.getHttpServer()).delete('/api/share/s1').expect(200);
+
+    expect(shareService.revokeShareLink).toHaveBeenCalledWith('u1', 's1');
+    expect(res.body).toEqual({ shareId: 's1', revoked: true });
+  });
+
+  it('DELETE /api/share/:shareId 未登录返回 401', async () => {
+    authed = false;
+    await request(app.getHttpServer()).delete('/api/share/s1').expect(401);
+    expect(shareService.revokeShareLink).not.toHaveBeenCalled();
   });
 });

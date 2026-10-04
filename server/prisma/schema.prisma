@@ -407,3 +407,22 @@ model AuditLog {
   @@index([userId, createdAt])
   @@index([resourceType, resourceId])
 }
+
+// ==================== 只读分享链接 ====================
+
+/// 分享链接记录（PIA R-6：可撤销 + 可配置有效期 + 访问计数）
+/// 独立表，不建外键（与 AuditLog 一致，撤销记录稳健留存、跨用户删除不受影响）。
+/// 分享 token 携带 jti = ShareLink.id，查看时以本表为权威校验撤销/过期状态（JWT 无状态无法主动吊销）。
+model ShareLink {
+  id           String    @id @default(cuid()) // 作为分享 JWT 的 jti
+  userId       String    // 分享者（owner）
+  reportId     String    // 被分享报告
+  expiresAt    DateTime  // 绝对过期时间（生成时按所选 TTL 计算）
+  revokedAt    DateTime? // 撤销时间；非空即失效
+  viewCount    Int       @default(0) // 免登录查看次数
+  lastViewedAt DateTime? // 最近查看时间
+  createdAt    DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([reportId])
+}
