@@ -43,6 +43,10 @@
         <text>家庭成员管理</text>
         <text class="arrow">></text>
       </view>
+      <view class="menu-item" @tap="goShares">
+        <text>我的分享</text>
+        <text class="arrow">></text>
+      </view>
       <view class="menu-item" @tap="goProfile">
         <text>个人信息</text>
         <text class="arrow">></text>
@@ -89,6 +93,7 @@ onShow(load);
 const goMembership = () => uni.navigateTo({ url: '/pages/membership/index' });
 const goDiagnoses = () => uni.navigateTo({ url: '/pages/diagnoses/index' });
 const goFamily = () => uni.navigateTo({ url: '/pages/family/index' });
+const goShares = () => uni.navigateTo({ url: '/pages/share/list' });
 const goProfile = () => uni.showToast({ title: '请在网页端编辑个人信息', icon: 'none' });
 const goAbout = () => uni.showModal({ title: '可为健康', content: '个人健康档案智能管理平台 v1.0.0', showCancel: false });
 const logout = () => auth.logout();

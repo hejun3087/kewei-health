@@ -87,10 +87,15 @@ export const memberSubscriptionApi = {
     Array.isArray(res) ? res : []),
 };
 
-// ==================== 报告分享（4.3.2，家庭版） ====================
-// 后端签发只读分享 token，返回 { token, path, expiresInDays }；
-// 非家庭版权益时后端返回 402，由 request.ts 统一弹升级引导。
+// ==================== 报告分享（4.3.2，家庭版 / PIA R-6） ====================
+// 后端基于 ShareLink 记录表签发只读分享 token（可撤销）：
+//   创建返回 { token, path, shareId, expiresAt, expiresInDays }；可传 expiresInDays（1~90）。
+//   GET /share/my 返回本人分享记录【纯数组】（含 shareId/reportId/expiresAt/revokedAt/viewCount/active）。
+// 非家庭版权益时创建返回 402，由 request.ts 统一弹升级引导；list/revoke 仅需登录。
 export const shareApi = {
-  createReport: (reportId: string) =>
-    http.post<any>(`/share/report/${reportId}`),
+  createReport: (reportId: string, expiresInDays?: number) =>
+    http.post<any>(`/share/report/${reportId}`, expiresInDays ? { expiresInDays } : {}),
+  listMine: () =>
+    http.get<any>('/share/my').then((res: any) => (Array.isArray(res) ? res : [])),
+  revoke: (shareId: string) => http.del<any>(`/share/${shareId}`),
 };

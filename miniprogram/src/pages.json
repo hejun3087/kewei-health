@@ -55,6 +55,12 @@
       }
     },
     {
+      "path": "pages/share/list",
+      "style": {
+        "navigationBarTitleText": "我的分享"
+      }
+    },
+    {
       "path": "pages/login/index",
       "style": {
         "navigationBarTitleText": "登录"

@@ -25,7 +25,7 @@
       <!-- 分享（4.3.2，家庭版权益；非家庭版后端返回 402 自动弹升级） -->
       <view class="share-bar">
         <button class="share-btn" :loading="sharing" @tap="onShare">{{ sharing ? '生成中...' : '🔗 分享报告' }}</button>
-        <text class="share-tip">生成 30 天有效的只读查看链接，对方无需登录</text>
+        <text class="share-tip">生成只读查看链接（有效期可选），对方无需登录，可随时在“我的分享”撤销</text>
       </view>
     </view>
     <view v-else class="empty-text">报告不存在</view>
@@ -55,16 +55,39 @@ onLoad(async (query: any) => {
   }
 });
 
-// 生成只读分享链接并复制到剪贴板
-const onShare = async () => {
+// 分享（4.3.2 / R-6）：先选有效期再生成只读链接，复制后引导去“我的分享”管理/撤销
+const ttlOptions = [
+  { label: '7 天', days: 7 },
+  { label: '30 天（默认）', days: 30 },
+  { label: '60 天', days: 60 },
+  { label: '90 天', days: 90 },
+];
+const onShare = () => {
   if (!reportId.value || sharing.value) return;
+  uni.showActionSheet({
+    itemList: ttlOptions.map((o) => `有效期 ${o.label}`),
+    success: (r) => {
+      const days = ttlOptions[r.tapIndex]?.days ?? 30;
+      void generateShare(days);
+    },
+  });
+};
+
+const generateShare = async (days: number) => {
   sharing.value = true;
   try {
-    const res: any = await shareApi.createReport(reportId.value);
+    const res: any = await shareApi.createReport(reportId.value, days);
     const link = `${WEB_BASE_URL}${res.path}`;
     uni.setClipboardData({
       data: link,
-      success: () => uni.showToast({ title: '分享链接已复制', icon: 'none' }),
+      success: () =>
+        uni.showModal({
+          title: '分享链接已复制',
+          content: `有效期 ${days} 天。可在“我的-我的分享”中查看与撤销。`,
+          confirmText: '去管理',
+          cancelText: '知道了',
+          success: (m) => { if (m.confirm) uni.navigateTo({ url: '/pages/share/list' }); },
+        }),
       fail: () => uni.showModal({ title: '分享链接', content: link, showCancel: false }),
     });
   } catch (e) {
