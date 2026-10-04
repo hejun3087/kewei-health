@@ -16,6 +16,7 @@ const TrendPage = lazy(() => import('./pages/Trend'));
 const UploadPage = lazy(() => import('./pages/Upload'));
 const ProfilePage = lazy(() => import('./pages/Profile'));
 const MembershipPage = lazy(() => import('./pages/Membership'));
+const MySharesPage = lazy(() => import('./pages/MyShares'));
 const NotFoundPage = lazy(() => import('./pages/NotFound'));
 const ShareViewPage = lazy(() => import('./pages/ShareView'));
 
@@ -48,6 +49,7 @@ function App() {
               <Route path="trend" element={<TrendPage />} />
               <Route path="upload" element={<UploadPage />} />
               <Route path="membership" element={<MembershipPage />} />
+              <Route path="shares" element={<MySharesPage />} />
               <Route path="profile" element={<ProfilePage />} />
               {/* 404（2.4.3）：登录后访问不存在路由，保留导航框架 */}
               <Route path="*" element={<NotFoundPage />} />

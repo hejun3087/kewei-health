@@ -25,18 +25,36 @@ export default function ReportsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>();
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
-  // 分享（4.3.2）：家庭版权益，非家庭版后端返回 402 由拦截器弹升级引导
+  // 分享（4.3.2 / PIA R-6）：家庭版权益，非家庭版后端返回 402 由拦截器弹升级引导
+  // 升级为可撤销分享：生成前先选有效期（1~90 天），创建返回 shareId/expiresAt
   const [shareOpen, setShareOpen] = useState(false);
+  const [shareReportId, setShareReportId] = useState<string>('');
   const [shareLink, setShareLink] = useState('');
+  const [shareMeta, setShareMeta] = useState<{ shareId: string; expiresAt: string } | null>(null);
+  const [expiresInDays, setExpiresInDays] = useState<number>(30);
   const [sharing, setSharing] = useState(false);
+  const ttlOptions = [
+    { value: 7, label: '7 天' },
+    { value: 30, label: '30 天（默认）' },
+    { value: 60, label: '60 天' },
+    { value: 90, label: '90 天' },
+  ];
 
-  const handleShare = async (reportId: string) => {
+  const openShare = (reportId: string) => {
+    setShareReportId(reportId);
+    setShareLink('');
+    setShareMeta(null);
+    setExpiresInDays(30);
+    setShareOpen(true);
+  };
+
+  const handleGenerateShare = async () => {
+    if (!shareReportId) return;
     setSharing(true);
     try {
-      const res = await api.post(`/share/report/${reportId}`);
-      const link = `${window.location.origin}${res.data.path}`;
-      setShareLink(link);
-      setShareOpen(true);
+      const res = await api.post(`/share/report/${shareReportId}`, { expiresInDays });
+      setShareLink(`${window.location.origin}${res.data.path}`);
+      setShareMeta({ shareId: res.data.shareId, expiresAt: res.data.expiresAt });
     } catch {
       // 402/错误已由 api 拦截器统一提示
     } finally {
@@ -132,7 +150,7 @@ export default function ReportsPage() {
       render: (_: any, record: any) => (
         <Space>
           <Button type="link" size="small" onClick={() => navigate(`/reports/${record.id}`)}>详情</Button>
-          <Button type="link" size="small" icon={<ShareAltOutlined />} loading={sharing} onClick={() => handleShare(record.id)}>分享</Button>
+          <Button type="link" size="small" icon={<ShareAltOutlined />} onClick={() => openShare(record.id)}>分享</Button>
           <Button type="link" size="small" danger onClick={() => handleDelete(record.id)}><DeleteOutlined /></Button>
         </Space>
       ),
@@ -182,13 +200,35 @@ export default function ReportsPage() {
         title="分享报告"
         open={shareOpen}
         onCancel={() => setShareOpen(false)}
-        footer={[
-          <Button key="close" onClick={() => setShareOpen(false)}>关闭</Button>,
-          <Button key="copy" type="primary" icon={<CopyOutlined />} onClick={copyShareLink}>复制链接</Button>,
-        ]}
+        footer={
+          shareLink
+            ? [
+                <Button key="manage" onClick={() => navigate('/shares')}>管理我的分享</Button>,
+                <Button key="close" onClick={() => setShareOpen(false)}>关闭</Button>,
+                <Button key="copy" type="primary" icon={<CopyOutlined />} onClick={copyShareLink}>复制链接</Button>,
+              ]
+            : [
+                <Button key="close" onClick={() => setShareOpen(false)}>取消</Button>,
+                <Button key="gen" type="primary" loading={sharing} onClick={handleGenerateShare}>生成链接</Button>,
+              ]
+        }
       >
-        <Typography.Paragraph type="secondary">任何持有此链接的人可只读查看该报告，链接 30 天内有效。</Typography.Paragraph>
-        <Input readOnly value={shareLink} onFocus={(e) => e.target.select()} />
+        {shareLink ? (
+          <>
+            <Typography.Paragraph type="secondary">
+              任何持有此链接的人可只读查看该报告，到期时间 {shareMeta?.expiresAt ? dayjs(shareMeta.expiresAt).format('YYYY-MM-DD HH:mm') : ''}。链接可随时在「我的分享」中撤销。
+            </Typography.Paragraph>
+            <Input readOnly value={shareLink} onFocus={(e) => e.target.select()} />
+          </>
+        ) : (
+          <>
+            <Typography.Paragraph type="secondary">选择链接有效期后生成只读分享链接（家庭版权益）。生成后可在「我的分享」随时撤销。</Typography.Paragraph>
+            <Space style={{ marginBottom: 12 }}>
+              <span>有效期：</span>
+              <Select style={{ width: 160 }} value={expiresInDays} options={ttlOptions} onChange={(v) => setExpiresInDays(v)} />
+            </Space>
+          </>
+        )}
       </Modal>
     </div>
   );
