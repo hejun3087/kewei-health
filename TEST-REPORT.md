@@ -7,10 +7,10 @@
 
 | 层级 | 框架 | 套件 / 文件 | 用例数 | 结果 |
 |------|------|-----------|--------|------|
-| 后端单元测试（Service/Controller/拦截器/加密基座+中间件） | Jest + ts-jest | 20 | 164 | ✅ 全过 |
+| 后端单元测试（Service/Controller/拦截器/加密基座+中间件） | Jest + ts-jest | 22 | 183 | ✅ 全过 |
 | 后端接口集成测试（HTTP 层） | supertest + @nestjs/testing | 12 | 54 | ✅ 全过 |
 | 前端组件测试 | Vitest + @testing-library/react + jsdom | 8 | 27 | ✅ 全过 |
-| **合计（自动化）** | | **40** | **245** | ✅ **全绿** |
+| **合计（自动化）** | | **42** | **264** | ✅ **全绿** |
 | 前后端契约回归 | `server/e2e-test.ps1`（需运行中的服务 + DB） | — | 报告/诊断/用药/会员主流程 | ⏸ 需部署环境手动执行 |
 | 微信小程序 | 无自动化测试脚本 | 0 | 0 | — 仅 `build:mp-weixin` 编译校验 |
 
@@ -20,17 +20,17 @@
 
 ## 二、后端覆盖率（Jest --coverage，门禁 Stmts/Lines ≥ 80%）
 
-**总计：89.66% Stmts ｜ 73.54% Branch ｜ 85.02% Funcs ｜ 90.47% Lines** —— 达成阶段目标（>80%），门禁通过。（本批新增 `common/crypto/prisma-encryption` 集中式加解密中间件单测；`common/crypto` 模块整体 93.81% Stmts / 89.06% Branch）
+**总计：90.36% Stmts ｜ 74.06% Branch ｜ 86.63% Funcs ｜ 91.23% Lines** —— 达成阶段目标（>80%），门禁通过。（本批新增登录审计留痕与只读查询端点的 `audit.controller`/`auth.controller` 单测 + `audit.service` 扩充；`audit` 目录 95.55% Stmts、`auth` 98.96% Stmts）
 
 | 模块 | Stmts | 模块 | Stmts |
 |------|-------|------|-------|
 | health | 100% | common | 100% |
-| auth | 96.38% | share | 100% |
+| auth | 98.96% | share | 100% |
 | family-member | 97.5% | medication | 97.77% |
 | diagnosis | 96.72% | upload | 94.73% |
 | report | 90.21% | export | 84.17% |
 | member | 79.36% | prisma | 71.42% |
-| ai | 67.18% | audit | 92.85% |
+| ai | 67.18% | audit | 95.55% |
 | common/crypto（加密基座+中间件）| 93.81% | — | — |
 
 ## 三、前端测试（Vitest）
@@ -60,6 +60,6 @@
 
 ## 五、结论
 
-- 后端 Service 层与 Controller HTTP 层已建立完整自动化测试（**218 用例全绿**，本批将健康数据静态加密从基座拓展至**集中式 Prisma 中间件**——覆盖 Report.summary/Diagnosis 文本/Medication.notes 的透明加解密，并含 User 敏感字段回归），覆盖率门禁固化进配置，随 CI 持续守护。
+- 后端 Service 层与 Controller HTTP 层已建立完整自动化测试（**237 用例全绿**，本批为已落地的数据访问审计（R-3）补齐**登录成功/失败留痕 + 本人只读审计查询端点**的单测，并完成健康数据静态加密全量中间件回归），覆盖率门禁固化进配置，随 CI 持续守护。
 - 前端测试基建从零建成并接入 CI，覆盖关键展示/容错组件与核心业务逻辑（登录态 Context + API 拦截器 + PIA 隐私提示与家庭成员授权二次确认）。
 - 阶段五「自动化测试脚本」（5.1.x）与「全面测试执行」的安全审计（5.2.3）均已关账；余下性能/兼容性/真机/契约联调类依赖外部运行环境，待部署后推进。

@@ -3,6 +3,7 @@ import { INestApplication, UnauthorizedException } from '@nestjs/common';
 import * as request from 'supertest';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuditService } from '../audit/audit.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 describe('AuthController (e2e)', () => {
@@ -14,6 +15,9 @@ describe('AuthController (e2e)', () => {
     loginByWechat: jest.fn(),
     validateUser: jest.fn(),
   };
+  const auditService = {
+    recordLogin: jest.fn().mockResolvedValue(undefined),
+  };
   let authed = true;
 
   beforeEach(async () => {
@@ -22,7 +26,10 @@ describe('AuthController (e2e)', () => {
 
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: authService }],
+      providers: [
+        { provide: AuthService, useValue: authService },
+        { provide: AuditService, useValue: auditService },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({

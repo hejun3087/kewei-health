@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { resolveJwtSecret } from '../common/jwt-config';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { resolveJwtSecret } from '../common/jwt-config';
       secret: resolveJwtSecret(),
       signOptions: { expiresIn: '7d' },
     }),
+    AuditModule, // 登录成功/失败留痕（PIA R-3）：提供 AuditService
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

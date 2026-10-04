@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AuditService } from './audit.service';
 import { AuditInterceptor } from './audit.interceptor';
+import { AuditController } from './audit.controller';
 
 /**
  * 数据访问审计模块（合规 6.1.7）。
@@ -9,6 +10,7 @@ import { AuditInterceptor } from './audit.interceptor';
  * PrismaService（@Global）与 Reflector（Nest 内置）均可直接注入。
  */
 @Module({
+  controllers: [AuditController],
   providers: [
     AuditService,
     AuditInterceptor,
