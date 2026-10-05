@@ -22,6 +22,8 @@ const AccessRecordsPage = lazy(() => import('./pages/AccessRecords'));
 const NotFoundPage = lazy(() => import('./pages/NotFound'));
 const ShareViewPage = lazy(() => import('./pages/ShareView'));
 const AllAuditPage = lazy(() => import('./pages/admin/AllAudit'));
+const AdminUsersPage = lazy(() => import('./pages/admin/Users'));
+const AllSharesPage = lazy(() => import('./pages/admin/AllShares'));
 const ForbiddenPage = lazy(() => import('./pages/Forbidden'));
 
 function App() {
@@ -62,6 +64,24 @@ function App() {
                 element={
                   <RequireRole roles={['SUPER_ADMIN', 'AUDITOR']}>
                     <AllAuditPage />
+                  </RequireRole>
+                }
+              />
+              {/* RBAC P1：用户管理（user:read 角色）*/}
+              <Route
+                path="admin/users"
+                element={
+                  <RequireRole roles={['SUPER_ADMIN', 'OPERATOR', 'AUDITOR']}>
+                    <AdminUsersPage />
+                  </RequireRole>
+                }
+              />
+              {/* RBAC P1：跨用户分享管理（share:read_all 角色）*/}
+              <Route
+                path="admin/shares"
+                element={
+                  <RequireRole roles={['SUPER_ADMIN', 'OPERATOR', 'AUDITOR']}>
+                    <AllSharesPage />
                   </RequireRole>
                 }
               />

@@ -15,6 +15,9 @@ import {
   HistoryOutlined,
   MenuOutlined,
   SafetyCertificateOutlined,
+  TeamOutlined,
+  LinkOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -33,14 +36,18 @@ const menuItems = [
   { key: '/profile', icon: <UserOutlined />, label: '个人中心' },
 ];
 
-// RBAC P0：管理端菜单项（仅对持有 SUPER_ADMIN / AUDITOR 的用户展现）。
+// RBAC P0/P1：管理端菜单分组（按角色显隐子项）。
 // 隐藏菜单仅为体验，不是安全边界；实际路由与管理端 API 受 RequireRole + 后端 RolesGuard 双重保护。
-const ADMIN_MENU_ITEM = {
-  key: '/admin/audit',
-  icon: <SafetyCertificateOutlined />,
-  label: '管理端日志',
+const ADMIN_SUBMENU = {
+  key: 'admin',
+  icon: <SettingOutlined />,
+  label: '管理后台',
+  children: [
+    { key: '/admin/audit', icon: <SafetyCertificateOutlined />, label: '管理端日志', roles: ['SUPER_ADMIN', 'AUDITOR'] },
+    { key: '/admin/users', icon: <TeamOutlined />, label: '用户管理', roles: ['SUPER_ADMIN', 'OPERATOR', 'AUDITOR'] },
+    { key: '/admin/shares', icon: <LinkOutlined />, label: '分享管理', roles: ['SUPER_ADMIN', 'OPERATOR', 'AUDITOR'] },
+  ],
 };
-const ADMIN_VISIBLE_ROLES = ['SUPER_ADMIN', 'AUDITOR'];
 
 export default function MainLayout() {
   const navigate = useNavigate();
@@ -62,13 +69,22 @@ export default function MainLayout() {
     { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: handleLogout },
   ];
 
-  const selectedKey = location.pathname === '/' ? '/' : '/' + location.pathname.split('/')[1];
+  // /admin/xxx 两段路径直接高亮完整路径；其余取一级路径
+  const selectedKey = location.pathname.startsWith('/admin/')
+    ? location.pathname
+    : location.pathname === '/'
+      ? '/'
+      : '/' + location.pathname.split('/')[1];
 
   // 基于后端 /auth/me 回传的角色快照动态拼接菜单（普通用户不展示管理端入口）
   const userRoles = Array.isArray(user?.roles) ? user!.roles! : [];
-  const canSeeAdmin = ADMIN_VISIBLE_ROLES.some((r) => userRoles.includes(r));
-  const visibleMenuItems = canSeeAdmin
-    ? [...menuItems.slice(0, menuItems.length - 1), ADMIN_MENU_ITEM, menuItems[menuItems.length - 1]]
+  const adminChildren = ADMIN_SUBMENU.children.filter((c) => c.roles.some((r) => userRoles.includes(r)));
+  const visibleMenuItems = adminChildren.length
+    ? [
+        ...menuItems.slice(0, menuItems.length - 1),
+        { ...ADMIN_SUBMENU, children: adminChildren.map(({ roles: _roles, ...item }) => item) },
+        menuItems[menuItems.length - 1],
+      ]
     : menuItems;
 
   // 菜单内容桌面/移动共用一份

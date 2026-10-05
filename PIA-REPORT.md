@@ -73,7 +73,7 @@
 | R-3 无审计日志 | **已落地数据访问审计（6.1.7）+ 登录成功/失败留痕 + 本人只读审计查询端点 + Web+小程序「访问记录」页端到端查看/筛选本人数据访问记录（双端闭环）+ RBAC P0 已落地：`GET /admin/audit` 跨用户全量审计查询（SUPER_ADMIN/AUDITOR + audit:read_all，Web 管理端审计页）** | **低** | （已缓解）部署时需执行 `prisma migrate deploy`（UserRole 表）并按 `docs/rbac-design.md` §十二跑 seed 引导首个 SUPER_ADMIN，否则管理端无人可访问 |
 | R-4 AI 误差 | 用户确认后保存、协议免责；**Web+小程序结果页均已强制“仅供参考”前置提示** | 低 | （已缓解） |
 | R-5 他人数据授权 | 协议含授权保证；**Web+小程序录入页均已二次确认授权声明（必勾）** | 低 | （已缓解） |
-| R-6 分享泄露 | 只读 token、限流；**已实现 `ShareLink` 记录表：可配置有效期（1~90 天）+ 即时撤销（旧 token 立即失效）+ 访问计数；Web+小程序「我的分享」页均可查看/撤销（双端闭环）** | **低** | （已缓解）跨用户全量分享管理待 RBAC P1（角色基座已于 P0 落地，`/admin/share` 管理端点与分享撤销未实现，见 `docs/rbac-design.md`） |
+| R-6 分享泄露 | 只读 token、限流；**已实现 `ShareLink` 记录表：可配置有效期（1~90 天）+ 即时撤销（旧 token 立即失效）+ 访问计数；Web+小程序「我的分享」页均可查看/撤销（双端闭环）+ RBAC P1 已落地：`GET /admin/shares` 跨用户分享查看（share:read_all，脱敏）+ `DELETE /admin/shares/:id` 应急强制撤销（share:revoke_all，仅 SUPER_ADMIN，理由必填入审计 resourceType=ADMIN），Web 管理端分享管理页** | **低** | （已缓解）部署前提同 R-3：`prisma migrate deploy` + seed 引导首个 SUPER_ADMIN，否则管理端无人可访问 |
 | R-7 爆破 | 限流 + bcrypt + 登录错误不抹存在性 | 低 | 可选图形验证码/设备指纹（P2） |
 | R-8 出境 | 全部境内供应商 | 低 | 上线前书面固化供应商清单与合同（P2） |
 | R-9 删除不彻底 | 软删除 + 注销标记；**已实现注销保留期到期物理清除健康数据 + 匿名化账号（`@nestjs/schedule` CronJob），保留账务与审计（法定留存）** | **低** | （已缓解）法定留存天数待律师终稿确定（env 可配）；上传原始文件在对象存储上的物理删除待结合存储层策略 |
