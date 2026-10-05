@@ -15,13 +15,14 @@ import {
 } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import api from '../../utils/api';
+import { stepUpRequest } from '../../utils/stepup';
 import { useAuth } from '../../contexts/AuthContext';
 import dayjs from 'dayjs';
 
-// 管理端用户管理（docs/rbac-design.md P1）。
+// 管理端用户管理（docs/rbac-design.md P1 + P2）。
 // GET /admin/users（user:read：SUPER_ADMIN/OPERATOR/AUDITOR，响应脱敏 PII）
-// PATCH /admin/users/:id/status + POST/DELETE /admin/users/:id/roles（仅 SUPER_ADMIN）
-// 前端按角色控制按钮可见性（体验层），后端 RolesGuard 为实际安全边界。
+// PATCH /admin/users/:id/status + POST/DELETE /admin/users/:id/roles（仅 SUPER_ADMIN，P2 需 step-up）
+// 前端按角色控制按钮可见性（体验层），后端 RolesGuard + StepUpGuard 为实际安全边界。
 
 const ROLE_OPTIONS = ['SUPER_ADMIN', 'OPERATOR', 'SUPPORT', 'AUDITOR'];
 const roleColor: Record<string, string> = {
@@ -114,7 +115,14 @@ export default function AdminUsersPage() {
       okButtonProps: { danger: next === 'DISABLED' },
       onOk: async () => {
         if (!reason.trim()) return Promise.reject(new Error('请填写理由'));
-        await api.patch(`/admin/users/${row.id}/status`, { status: next, reason: reason.trim() });
+        // RBAC P2：启停需 step-up 二次验证，requestStepUp 失败会抛 → 外层 Modal 保持打开
+        await stepUpRequest((token) =>
+          api.patch(
+            `/admin/users/${row.id}/status`,
+            { status: next, reason: reason.trim() },
+            { headers: { 'x-stepup-token': token } },
+          ),
+        );
         load();
         if (detail?.id === row.id) openDetail(row.id);
       },
@@ -137,7 +145,13 @@ export default function AdminUsersPage() {
       ),
       onOk: async () => {
         if (!reason.trim()) return Promise.reject(new Error('请填写理由'));
-        await api.post(`/admin/users/${detail.id}/roles`, { role, reason: reason.trim() });
+        await stepUpRequest((token) =>
+          api.post(
+            `/admin/users/${detail.id}/roles`,
+            { role, reason: reason.trim() },
+            { headers: { 'x-stepup-token': token } },
+          ),
+        );
         openDetail(detail.id);
       },
     });
@@ -145,8 +159,18 @@ export default function AdminUsersPage() {
 
   const revokeRole = async (role: string) => {
     if (!detail) return;
-    await api.delete(`/admin/users/${detail.id}/roles/${role}`, { params: { reason: '管理端撤销' } });
-    openDetail(detail.id);
+    // Popconfirm 无 onOk rejected保持机制：step-up 取消或失败直接 return（api 拦截器已提示）
+    try {
+      await stepUpRequest((token) =>
+        api.delete(`/admin/users/${detail.id}/roles/${role}`, {
+          params: { reason: '管理端撤销' },
+          headers: { 'x-stepup-token': token },
+        }),
+      );
+      openDetail(detail.id);
+    } catch {
+      /* requestStepUp 已处理失败提示，不再抛出 */
+    }
   };
 
   const columns = [

@@ -9,7 +9,10 @@ import { Permission, Role } from './permissions';
  */
 export const ROLES_KEY = 'rbac:roles';
 export const PERMISSIONS_KEY = 'rbac:permissions';
+export const STEPUP_KEY = 'rbac:requireStepUp';
 
 export const Roles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
 export const Permissions = (...permissions: Permission[]) =>
   SetMetadata(PERMISSIONS_KEY, permissions);
+/** 危险操作需 step-up 二次验证（docs/rbac-design.md §9.2，RBAC P2）：配合 StepUpGuard 使用 */
+export const RequireStepUp = () => SetMetadata(STEPUP_KEY, true);

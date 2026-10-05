@@ -139,6 +139,9 @@ export class AuditService {
    * 与 queryOwn 同构，但不强制 userId；可选 userId 过滤定位单一主体。
    * 需与 `@Roles(SUPER_ADMIN, AUDITOR)` + `@Permissions(AUDIT_READ_ALL)` 配合使用，
    * 控制器侧未命中即 403；Service 层不重复授权判定，以保持单一职责（与 queryOwn 对齐）。
+   *
+   * RBAC P2 扩展：`action` 支持逗号分隔多值（如 `ROLE_GRANT,ROLE_REVOKE`）以支撑
+   * “权限变更履历”页面一次拉取同资源类型的多个动作；单值行为向后兼容。
    */
   async queryAll(
     query: {
@@ -154,7 +157,14 @@ export class AuditService {
   ) {
     const where: any = {};
     if (query.userId) where.userId = String(query.userId);
-    if (query.action) where.action = String(query.action);
+    if (query.action) {
+      const actions = String(query.action)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (actions.length === 1) where.action = actions[0];
+      else if (actions.length > 1) where.action = { in: actions };
+    }
     if (query.resourceType) where.resourceType = String(query.resourceType);
     if (query.success !== undefined && query.success !== '' && query.success !== null) {
       where.success = String(query.success) === 'true';

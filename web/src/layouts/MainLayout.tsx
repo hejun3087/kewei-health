@@ -18,6 +18,7 @@ import {
   TeamOutlined,
   LinkOutlined,
   SettingOutlined,
+  UserSwitchOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -36,8 +37,8 @@ const menuItems = [
   { key: '/profile', icon: <UserOutlined />, label: '个人中心' },
 ];
 
-// RBAC P0/P1：管理端菜单分组（按角色显隐子项）。
-// 隐藏菜单仅为体验，不是安全边界；实际路由与管理端 API 受 RequireRole + 后端 RolesGuard 双重保护。
+// RBAC P0/P1/P2：管理端菜单分组（按角色显隐子项）。
+// 隐藏菜单仅为体验，不是安全边界；实际路由与管理端 API 受 RequireRole + 后端 RolesGuard/StepUpGuard 双重保护。
 const ADMIN_SUBMENU = {
   key: 'admin',
   icon: <SettingOutlined />,
@@ -46,6 +47,7 @@ const ADMIN_SUBMENU = {
     { key: '/admin/audit', icon: <SafetyCertificateOutlined />, label: '管理端日志', roles: ['SUPER_ADMIN', 'AUDITOR'] },
     { key: '/admin/users', icon: <TeamOutlined />, label: '用户管理', roles: ['SUPER_ADMIN', 'OPERATOR', 'AUDITOR'] },
     { key: '/admin/shares', icon: <LinkOutlined />, label: '分享管理', roles: ['SUPER_ADMIN', 'OPERATOR', 'AUDITOR'] },
+    { key: '/admin/permission-history', icon: <UserSwitchOutlined />, label: '权限变更履历', roles: ['SUPER_ADMIN', 'AUDITOR'] },
   ],
 };
 

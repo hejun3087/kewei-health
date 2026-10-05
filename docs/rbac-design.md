@@ -309,6 +309,7 @@ async queryAll(@Query() q: AuditQueryDto) { ... }
 `health:read_full` / `user:update_status` / `role:assign` 等敏感动作，除常规 JWT 外**额外**要求 header `x-stepup-token`：
 - 前端点击危险按钮 → 弹密码重输框 → `POST /auth/stepup`（校验当前密码）→ 返回 5min TTL 短 token → 附在真实请求 header。
 - v1 起步可先落 `role:assign` 一处，其他按 P1/P2 补上。
+- **【RBAC P2 已落地（2026-10-05）】**：`POST /auth/stepup` 签发 `typ:stepup` 5min TTL 短 token；`StepUpGuard`（`@RequireStepUp()` opt-in）已挂 4 个危险管理端点（用户启停 / 角色授予 / 角色撤销 / 跨用户强撤）；Web 端 `utils/stepup.tsx` 密码弹窗 + sessionStorage 5min 缓存。本批采用无状态短 token（**无 jti 黑名单**），5min TTL 兜底自然过期即失效；即时吊销 defer v2（见 §十三 13.3）。`health:read_full` 端点属 P3，尚未落地，不在本批 step-up 覆盖范围内。
 
 ### 9.3 敏感数据边界
 - 管理员**永远不能**看到 bcrypt 密码 hash（controller 层 select 排除）。
@@ -334,9 +335,9 @@ async queryAll(@Query() q: AuditQueryDto) { ... }
 
 | 阶段 | 内容 | 估算 | 依赖 |
 |------|------|------|------|
-| **P0** | Schema + 迁移 + seed；`RolesGuard` + `@Permissions`/`@Roles`；JWT payload 扩展；首个端到端解锁点：`GET /admin/audit`（对应 PIA R-3）+ 单测/e2e；Web `AllAudit.tsx` + 侧边栏动态显示 + 403 页 | 3-4 天 | 本方案 review 通过 |
-| **P1** | 用户管理端点（`/admin/users*`）+ 分享管理端点（`/admin/shares*`，解锁 PIA R-6 尾项）+ 各自 Web UI | 3-4 天 | P0 |
-| **P2** | `role:assign` + `x-stepup-token` 二次验证 + 权限变更履历页 | 3-5 天 | P1 |
+| **P0** | Schema + 迁移 + seed；`RolesGuard` + `@Permissions`/`@Roles`；JWT payload 扩展；首个端到端解锁点：`GET /admin/audit`（对应 PIA R-3）+ 单测/e2e；Web `AllAudit.tsx` + 侧边栏动态显示 + 403 页 | 3-4 天 | 本方案 review 通过（✅ 已于 2026-10-05 落地） |
+| **P1** | 用户管理端点（`/admin/users*`）+ 分享管理端点（`/admin/shares*`，解锁 PIA R-6 尾项）+ 各自 Web UI | 3-4 天 | P0（✅ 已于 2026-10-05 落地） |
+| **P2** | `role:assign` + `x-stepup-token` 二次验证 + 权限变更履历页 | 3-5 天 | P1（✅ 已于 2026-10-05 落地：step-up 短 token + `StepUpGuard` 挂 4 危险端点 + `/admin/permission-history` 履历页） |
 | **P3** | `subscription:read` / `refund`（对接支付网关退款）/ `health:read_full`（律师 sign-off 后再做）/ `system:config` | 待定 | 外部条件（支付网关能力、隐私政策终稿） |
 
 **每阶段验收**：本地全量 jest + nest build + web vitest + web build + 小程序 build（若涉及）+ CI 绿灯；PIA/PROGRESS 文档同步。
@@ -348,7 +349,7 @@ async queryAll(@Query() q: AuditQueryDto) { ... }
 | # | 风险 / 问题 | 建议处置 |
 |---|-----------|---------|
 | R1 | Bootstrap：初始 SUPER_ADMIN 由 seed 创建，若 env 泄漏可被抢注 | seed 后立即清空 env；生产用部署手册要求人工创建 |
-| R2 | JWT TTL 7d 期间角色变更不能即时生效 | 视风险接受度决定：P0 保留 7d + 强制禁用账号即刻失效；P2 考虑 jti 黑名单或 refresh flow |
+| R2 | JWT TTL 7d 期间角色变更不能即时生效 | 视风险接受度决定：P0 保留 7d + 强制禁用账号即刻失效；P2 考虑 jti 黑名单或 refresh flow（**P2 实际落地采折中方案：step-up 短 token 5min TTL 自然过期兜底，jti 黑名单仍 defer v2**） |
 | R3 | 权限矩阵硬编码，未来加权限要发版 | 可接受（v1 权限项少，静态审计友好）；若变多再迁 DB |
 | R4 | `health:read_full` 隐私边界 | 需律师复核；隐私政策终稿要新增"为提供客户支持/履行法定义务"处理依据条款（PIA 尾项） |
 | R5 | 与会员 Plan 权益混淆 | 明确：**Plan ≠ Role**。Plan 决定 C 端功能配额（AI 次数/家庭人数），Role 决定管理后台权限；两套互不影响 |

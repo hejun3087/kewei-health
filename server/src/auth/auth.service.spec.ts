@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { encryptField } from '../common/crypto/encryption';
@@ -228,6 +228,58 @@ describe('AuthService', () => {
 
       prisma.user.findUnique.mockResolvedValue(baseUser({ status: 'BANNED' }));
       await expect(service.validateUser('u1')).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('stepUp（RBAC P2 二次验证）', () => {
+    it('密码正确：签发 typ=stepup + 5min TTL 短 token，payload 仅含 sub+typ（不含 roles/scope）', async () => {
+      const hash = await bcrypt.hash('current-pass', 10);
+      prisma.user.findUnique.mockResolvedValue(baseUser({ password: hash }));
+      jwtService.sign.mockReturnValue('stepup-jwt');
+
+      const res = await service.stepUp('u1', 'current-pass');
+
+      expect(res).toEqual({ token: 'stepup-jwt', expiresIn: 300 });
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        { sub: 'u1', typ: 'stepup' },
+        { expiresIn: '5m' },
+      );
+    });
+
+    it('缺少密码入参 → 400（前端应先弹窗收集）', async () => {
+      await expect(service.stepUp('u1', undefined)).rejects.toBeInstanceOf(BadRequestException);
+      expect(jwtService.sign).not.toHaveBeenCalled();
+    });
+
+    it('用户不存在 → 401（不泄露是否为有效账号）', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.stepUp('ghost', 'pw')).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(jwtService.sign).not.toHaveBeenCalled();
+    });
+
+    it('微信/验证码账号未设密码 → 400，明确无法参与危险操作', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser({ password: null }));
+      await expect(service.stepUp('u1', 'whatever')).rejects.toThrow(
+        '账号未设置密码，无法进行二次验证',
+      );
+      expect(jwtService.sign).not.toHaveBeenCalled();
+    });
+
+    it('已注销/禁用账号即使密码正确也拒绝（复用 assertActive）', async () => {
+      const hash = await bcrypt.hash('right', 10);
+      prisma.user.findUnique.mockResolvedValue(baseUser({ password: hash, status: 'DELETED' }));
+      await expect(service.stepUp('u1', 'right')).rejects.toThrow('账号已注销，无法登录');
+
+      prisma.user.findUnique.mockResolvedValue(baseUser({ password: hash, status: 'DISABLED' }));
+      await expect(service.stepUp('u1', 'right')).rejects.toThrow('账号已被禁用');
+      expect(jwtService.sign).not.toHaveBeenCalled();
+    });
+
+    it('密码错误 → 401，且不签发 token（探测不出差异）', async () => {
+      const hash = await bcrypt.hash('right-pass', 10);
+      prisma.user.findUnique.mockResolvedValue(baseUser({ password: hash }));
+      await expect(service.stepUp('u1', 'wrong-pass')).rejects.toThrow('密码错误');
+      expect(jwtService.sign).not.toHaveBeenCalled();
     });
   });
 

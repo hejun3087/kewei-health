@@ -1,13 +1,15 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { JwtService } from '@nestjs/jwt';
 import * as request from 'supertest';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AuditService } from '../audit/audit.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RbacModule } from '../rbac/rbac.module';
-import { PERMISSIONS_KEY, ROLES_KEY } from '../rbac/roles.decorator';
+import { PERMISSIONS_KEY, ROLES_KEY, STEPUP_KEY } from '../rbac/roles.decorator';
 import { Permission, Role } from '../rbac/permissions';
+import { resolveJwtSecret } from '../common/jwt-config';
 
 /**
  * AdminController 集成测试（docs/rbac-design.md P0 + P1）：
@@ -76,27 +78,42 @@ describe('AdminController 集成（守卫链 + P0/P1 端点）', () => {
   const meta = (handler: any) => ({
     roles: Reflect.getMetadata(ROLES_KEY, handler) as Role[],
     perms: Reflect.getMetadata(PERMISSIONS_KEY, handler) as Permission[],
+    stepup: Reflect.getMetadata(STEPUP_KEY, handler) === true,
   });
+
+  // 为 @RequireStepUp 端点签发一个合法 5min step-up token（与 StepUpGuard 同 secret，typ=stepup）
+  const signStepup = (userId: string) =>
+    new JwtService({ secret: resolveJwtSecret() }).sign({ sub: userId, typ: 'stepup' }, { expiresIn: '5m' });
 
   // -------- 元数据：装饰器挂载正确（防遗漏） --------
 
-  it('元数据：各端点 @Roles/@Permissions 符合矩阵设计', () => {
+  it('元数据：各端点 @Roles/@Permissions/@RequireStepUp 符合矩阵设计', () => {
     expect(meta(AdminController.prototype.getAllAudit)).toEqual({
       roles: [Role.SUPER_ADMIN, Role.AUDITOR],
       perms: [Permission.AUDIT_READ_ALL],
+      stepup: false,
     });
     expect(meta(AdminController.prototype.listUsers).roles).toEqual([Role.SUPER_ADMIN, Role.OPERATOR, Role.AUDITOR]);
     expect(meta(AdminController.prototype.listUsers).perms).toEqual([Permission.USER_READ]);
+    expect(meta(AdminController.prototype.listUsers).stepup).toBe(false);
     expect(meta(AdminController.prototype.setUserStatus)).toEqual({
       roles: [Role.SUPER_ADMIN],
       perms: [Permission.USER_DISABLE],
+      stepup: true,
     });
-    expect(meta(AdminController.prototype.grantRole).perms).toEqual([Permission.ROLE_GRANT]);
+    expect(meta(AdminController.prototype.grantRole)).toEqual({
+      roles: [Role.SUPER_ADMIN],
+      perms: [Permission.ROLE_GRANT],
+      stepup: true,
+    });
     expect(meta(AdminController.prototype.revokeRole).perms).toEqual([Permission.ROLE_REVOKE]);
+    expect(meta(AdminController.prototype.revokeRole).stepup).toBe(true);
     expect(meta(AdminController.prototype.listShares).perms).toEqual([Permission.SHARE_READ_ALL]);
+    expect(meta(AdminController.prototype.listShares).stepup).toBe(false);
     expect(meta(AdminController.prototype.revokeShare)).toEqual({
       roles: [Role.SUPER_ADMIN],
       perms: [Permission.SHARE_REVOKE_ALL],
+      stepup: true,
     });
   });
 
@@ -135,13 +152,44 @@ describe('AdminController 集成（守卫链 + P0/P1 端点）', () => {
 
   // -------- P1 启停 / 角色（仅 SUPER_ADMIN） --------
 
-  it('PATCH /admin/users/:id/status：SUPER_ADMIN → 200', async () => {
+  it('PATCH /admin/users/:id/status：SUPER_ADMIN + stepup token → 200', async () => {
+    injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
+    await request(app.getHttpServer())
+      .patch('/admin/users/u1/status')
+      .set('x-stepup-token', signStepup('admin1'))
+      .send({ status: 'DISABLED', reason: '风控' })
+      .expect(200);
+    expect(adminService.setUserStatus).toHaveBeenCalledWith(expect.anything(), 'u1', 'DISABLED', '风控');
+  });
+
+  it('PATCH /admin/users/:id/status：缺 stepup token → 403（RBAC P2）', async () => {
     injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
     await request(app.getHttpServer())
       .patch('/admin/users/u1/status')
       .send({ status: 'DISABLED', reason: '风控' })
-      .expect(200);
-    expect(adminService.setUserStatus).toHaveBeenCalledWith(expect.anything(), 'u1', 'DISABLED', '风控');
+      .expect(403);
+    expect(adminService.setUserStatus).not.toHaveBeenCalled();
+  });
+
+  it('PATCH /admin/users/:id/status：stepup token sub 不匹配 → 403（防跨账号复用）', async () => {
+    injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
+    await request(app.getHttpServer())
+      .patch('/admin/users/u1/status')
+      .set('x-stepup-token', signStepup('attacker'))
+      .send({ status: 'DISABLED', reason: 'x' })
+      .expect(403);
+    expect(adminService.setUserStatus).not.toHaveBeenCalled();
+  });
+
+  it('PATCH /admin/users/:id/status：登录 token 冒充 stepup（typ 不为 stepup）→ 403', async () => {
+    injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
+    const fakeToken = new JwtService({ secret: resolveJwtSecret() }).sign({ sub: 'admin1', roles: ['SUPER_ADMIN'] });
+    await request(app.getHttpServer())
+      .patch('/admin/users/u1/status')
+      .set('x-stepup-token', fakeToken)
+      .send({ status: 'DISABLED', reason: 'x' })
+      .expect(403);
+    expect(adminService.setUserStatus).not.toHaveBeenCalled();
   });
 
   it('PATCH /admin/users/:id/status：OPERATOR → 403（无 USER_DISABLE）', async () => {
@@ -150,13 +198,23 @@ describe('AdminController 集成（守卫链 + P0/P1 端点）', () => {
     expect(adminService.setUserStatus).not.toHaveBeenCalled();
   });
 
-  it('POST /admin/users/:id/roles：SUPER_ADMIN → 201', async () => {
+  it('POST /admin/users/:id/roles：SUPER_ADMIN + stepup → 201', async () => {
     injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
     await request(app.getHttpServer())
       .post('/admin/users/u1/roles')
+      .set('x-stepup-token', signStepup('admin1'))
       .send({ role: 'AUDITOR', reason: '合规审计' })
       .expect(201);
     expect(adminService.grantRole).toHaveBeenCalledWith(expect.anything(), 'u1', 'AUDITOR', '合规审计');
+  });
+
+  it('POST /admin/users/:id/roles：SUPER_ADMIN 但缺 stepup → 403（RBAC P2）', async () => {
+    injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
+    await request(app.getHttpServer())
+      .post('/admin/users/u1/roles')
+      .send({ role: 'AUDITOR', reason: 'x' })
+      .expect(403);
+    expect(adminService.grantRole).not.toHaveBeenCalled();
   });
 
   it('POST /admin/users/:id/roles：AUDITOR → 403（授撤角色仅 SUPER_ADMIN）', async () => {
@@ -165,9 +223,12 @@ describe('AdminController 集成（守卫链 + P0/P1 端点）', () => {
     expect(adminService.grantRole).not.toHaveBeenCalled();
   });
 
-  it('DELETE /admin/users/:id/roles/:role：SUPER_ADMIN → 200', async () => {
+  it('DELETE /admin/users/:id/roles/:role：SUPER_ADMIN + stepup → 200', async () => {
     injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
-    await request(app.getHttpServer()).delete('/admin/users/u1/roles/AUDITOR').expect(200);
+    await request(app.getHttpServer())
+      .delete('/admin/users/u1/roles/AUDITOR')
+      .set('x-stepup-token', signStepup('admin1'))
+      .expect(200);
     expect(adminService.revokeRole).toHaveBeenCalledWith(expect.anything(), 'u1', 'AUDITOR', undefined);
   });
 
@@ -179,10 +240,19 @@ describe('AdminController 集成（守卫链 + P0/P1 端点）', () => {
     expect(adminService.listShares).toHaveBeenCalled();
   });
 
-  it('DELETE /admin/shares/:id：SUPER_ADMIN → 200', async () => {
+  it('DELETE /admin/shares/:id：SUPER_ADMIN + stepup → 200', async () => {
     injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
-    await request(app.getHttpServer()).delete('/admin/shares/s1').expect(200);
+    await request(app.getHttpServer())
+      .delete('/admin/shares/s1')
+      .set('x-stepup-token', signStepup('admin1'))
+      .expect(200);
     expect(adminService.revokeShare).toHaveBeenCalledWith(expect.anything(), 's1', undefined);
+  });
+
+  it('DELETE /admin/shares/:id：SUPER_ADMIN 但缺 stepup → 403（RBAC P2）', async () => {
+    injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
+    await request(app.getHttpServer()).delete('/admin/shares/s1').expect(403);
+    expect(adminService.revokeShare).not.toHaveBeenCalled();
   });
 
   it('DELETE /admin/shares/:id：OPERATOR → 403（强撤仅 SUPER_ADMIN）', async () => {

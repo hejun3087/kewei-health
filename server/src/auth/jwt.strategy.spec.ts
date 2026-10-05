@@ -14,6 +14,12 @@ describe('JwtStrategy.validate（令牌校验）', () => {
     ).rejects.toThrow(UnauthorizedException);
   });
 
+  it('step-up 短 token（typ=stepup）被拒绝，不得当登录凭证复用（RBAC P2）', async () => {
+    await expect(
+      strategy.validate({ sub: 'u1', typ: 'stepup' }),
+    ).rejects.toThrow('无效令牌');
+  });
+
   it('普通登录令牌返回 {userId, phone, roles}', async () => {
     const res = await strategy.validate({ sub: 'u1', phone: '13800000000', roles: ['SUPER_ADMIN'] });
     expect(res).toEqual({ userId: 'u1', phone: '13800000000', roles: ['SUPER_ADMIN'] });

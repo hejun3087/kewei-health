@@ -190,6 +190,18 @@ describe('AuditService.queryAll（RBAC P0 管理端跨用户查询）', () => {
     expect(where).toMatchObject({ userId: 'u42', action: 'EXPORT' });
   });
 
+  it('RBAC P2：action 逗号分隔多值 → where.action = { in: [...] }，去空且去重后仍保持顺序', async () => {
+    await svc.queryAll({ action: 'ROLE_GRANT, ROLE_REVOKE,ROLE_GRANT ' });
+    const where = prisma.auditLog.findMany.mock.calls[0][0].where;
+    expect(where.action).toEqual({ in: ['ROLE_GRANT', 'ROLE_REVOKE', 'ROLE_GRANT'] });
+  });
+
+  it('RBAC P2：action 单值保持旧行为（直接赋值，不套 in）', async () => {
+    await svc.queryAll({ action: 'STEPUP' });
+    const where = prisma.auditLog.findMany.mock.calls[0][0].where;
+    expect(where.action).toBe('STEPUP');
+  });
+
   it('分页与上限：pageSize>100 截断为 100，skip 与 queryOwn 同构', async () => {
     await svc.queryAll({ page: '2', pageSize: '500' });
     const arg = prisma.auditLog.findMany.mock.calls[0][0];

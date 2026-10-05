@@ -14,8 +14,12 @@ describe('AuthController 登录审计留痕（PIA R-3）', () => {
       register: jest.fn(),
       loginByWechat: jest.fn(),
       validateUser: jest.fn(),
+      stepUp: jest.fn(),
     };
-    auditService = { recordLogin: jest.fn().mockResolvedValue(undefined) };
+    auditService = {
+      recordLogin: jest.fn().mockResolvedValue(undefined),
+      record: jest.fn().mockResolvedValue(undefined),
+    };
     ctrl = new AuthController(authService, auditService);
   });
 
@@ -69,4 +73,40 @@ describe('AuthController 登录审计留痕（PIA R-3）', () => {
     expect(authService.validateUser).toHaveBeenCalledWith('u1');
     expect(auditService.recordLogin).not.toHaveBeenCalled();
   });
+
+  // -------- POST /auth/stepup（RBAC P2） --------
+
+  it('stepup 成功：签发 token 后落 STEPUP/success 审计（带 userId/ip/ua）', async () => {
+    authService.stepUp.mockResolvedValue({ token: 'stepup-jwt', expiresIn: 300 });
+    const res = await ctrl.stepUp({ user: { userId: 'admin1' }, ...req }, { password: 'pw' });
+    expect(res).toEqual({ token: 'stepup-jwt', expiresIn: 300 });
+    expect(authService.stepUp).toHaveBeenCalledWith('admin1', 'pw');
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin1',
+        action: 'STEPUP',
+        resourceType: 'AUTH',
+        ip: '1.2.3.4',
+        userAgent: 'UA',
+        success: true,
+      }),
+    );
+  });
+
+  it('stepup 密码错误：抛 401 且落 STEPUP/failure 审计（携带 status=401）', async () => {
+    authService.stepUp.mockRejectedValue(new UnauthorizedException('密码错误'));
+    await expect(
+      ctrl.stepUp({ user: { userId: 'admin1' }, ...req }, { password: 'bad' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin1',
+        action: 'STEPUP',
+        resourceType: 'AUTH',
+        success: false,
+        meta: { status: 401 },
+      }),
+    );
+  });
 });
+

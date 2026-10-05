@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { Table, Tag, Space, Typography, Input, Button, Empty, Select, Modal } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import api from '../../utils/api';
+import { stepUpRequest } from '../../utils/stepup';
 import { useAuth } from '../../contexts/AuthContext';
 import dayjs from 'dayjs';
 
-// 管理端跨用户分享管理（docs/rbac-design.md P1，解锁 PIA R-6 尾项）。
-// 对接 GET /admin/shares（share:read_all）+ DELETE /admin/shares/:id（share:revoke_all，仅 SUPER_ADMIN）。
-// 与本人「我的分享」页不同：含 owner 维度，强制撤销需理由，操作走后端审计（resourceType=ADMIN）。
+// 管理端跨用户分享管理（docs/rbac-design.md P1 + P2，解锁 PIA R-6 尾项）。
+// 对接 GET /admin/shares（share:read_all）+ DELETE /admin/shares/:id（share:revoke_all，仅 SUPER_ADMIN，P2 需 step-up）。
+// 与本人「我的分享」页不同：含 owner 维度，强制撤销需理由 + 二次验证，操作走后端审计（resourceType=ADMIN）。
 
 const reportTypeLabel: Record<string, string> = {
   LAB: '化验',
@@ -95,7 +96,13 @@ export default function AllSharesPage() {
           // 抛错以阻止 Modal 关闭
           return Promise.reject(new Error('请填写撤销理由'));
         }
-        await api.delete(`/admin/shares/${row.shareId}`, { params: { reason: reason.trim() } });
+        // RBAC P2：强撤需 step-up 二次验证
+        await stepUpRequest((token) =>
+          api.delete(`/admin/shares/${row.shareId}`, {
+            params: { reason: reason.trim() },
+            headers: { 'x-stepup-token': token },
+          }),
+        );
         load();
       },
     });

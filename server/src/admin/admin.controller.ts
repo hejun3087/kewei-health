@@ -14,7 +14,8 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../rbac/roles.guard';
-import { Permissions, Roles } from '../rbac/roles.decorator';
+import { StepUpGuard } from '../rbac/stepup.guard';
+import { Permissions, RequireStepUp, Roles } from '../rbac/roles.decorator';
 import { Permission, Role } from '../rbac/permissions';
 import { AuditService } from '../audit/audit.service';
 import { AdminService } from './admin.service';
@@ -22,8 +23,9 @@ import { AdminService } from './admin.service';
 /**
  * 管理端接口（docs/rbac-design.md P0 + P1）。
  *
- * 前缀 `/admin/*`，全类叠加 `JwtAuthGuard → RolesGuard` 双层守卫链：
- *   Throttler（全局）→ JwtAuthGuard（401 未登录）→ RolesGuard（403 无角色/权限）→ AuditInterceptor。
+ * 前缀 `/admin/*`，全类叠加 `JwtAuthGuard → RolesGuard → StepUpGuard` 三层守卫链：
+ *   Throttler（全局）→ JwtAuthGuard（401 未登录）→ RolesGuard（403 无角色/权限）
+ *   → StepUpGuard（仅 @RequireStepUp 端点：缺/非法 x-stepup-token 403，RBAC P2）→ AuditInterceptor。
  *
  * P0：`GET /admin/audit` 跨用户全量审计查询（解锁 PIA R-3）。
  * P1：跨用户用户管理（列表/详情/启停）、角色授予/撤销、分享列表/强制撤销（解锁 PIA R-6）。
@@ -33,7 +35,7 @@ import { AdminService } from './admin.service';
  */
 @ApiTags('管理端')
 @Controller('admin')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, StepUpGuard)
 @ApiBearerAuth()
 export class AdminController {
   constructor(
@@ -72,7 +74,8 @@ export class AdminController {
   @Patch('users/:id/status')
   @Roles(Role.SUPER_ADMIN)
   @Permissions(Permission.USER_DISABLE)
-  @ApiOperation({ summary: '启用/禁用账号（仅 SUPER_ADMIN，ACTIVE↔DISABLED）' })
+  @RequireStepUp()
+  @ApiOperation({ summary: '启用/禁用账号（仅 SUPER_ADMIN，需 step-up 二次验证）' })
   setUserStatus(
     @Req() req: any,
     @Param('id') id: string,
@@ -86,7 +89,8 @@ export class AdminController {
   @Post('users/:id/roles')
   @Roles(Role.SUPER_ADMIN)
   @Permissions(Permission.ROLE_GRANT)
-  @ApiOperation({ summary: '授予角色（仅 SUPER_ADMIN，落审计）' })
+  @RequireStepUp()
+  @ApiOperation({ summary: '授予角色（仅 SUPER_ADMIN，需 step-up，落审计）' })
   grantRole(
     @Req() req: any,
     @Param('id') id: string,
@@ -98,8 +102,9 @@ export class AdminController {
   @Delete('users/:id/roles/:role')
   @Roles(Role.SUPER_ADMIN)
   @Permissions(Permission.ROLE_REVOKE)
+  @RequireStepUp()
   @HttpCode(200)
-  @ApiOperation({ summary: '撤销角色（仅 SUPER_ADMIN，软撤销保留历史）' })
+  @ApiOperation({ summary: '撤销角色（仅 SUPER_ADMIN，需 step-up，软撤销保留历史）' })
   revokeRole(
     @Req() req: any,
     @Param('id') id: string,
@@ -122,7 +127,8 @@ export class AdminController {
   @Delete('shares/:id')
   @Roles(Role.SUPER_ADMIN)
   @Permissions(Permission.SHARE_REVOKE_ALL)
-  @ApiOperation({ summary: '强制撤销任意分享链接（仅 SUPER_ADMIN，应急不良内容）' })
+  @RequireStepUp()
+  @ApiOperation({ summary: '强制撤销任意分享链接（仅 SUPER_ADMIN，需 step-up，应急不良内容）' })
   revokeShare(
     @Req() req: any,
     @Param('id') id: string,

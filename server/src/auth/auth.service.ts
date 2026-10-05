@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -149,6 +149,33 @@ export class AuthService {
     }
     const roles = await this.loadUserRoles(userId);
     return this.sanitizeUser(user, roles);
+  }
+
+  /**
+   * 危险操作 step-up 二次验证（docs/rbac-design.md §9.2，RBAC P2）：
+   * 重输当前密码验证通过后签发 5min TTL 短 token（payload 带 `typ:'stepup'`，与登录 token 隔离），
+   * 前端附在 `x-stepup-token` header 调用受 `@RequireStepUp()` 保护的管理端点。
+   * 仅限已设密码的账号（微信/验证码用户无密码 → 400，无法参与危险操作）。
+   */
+  async stepUp(userId: string, password?: string) {
+    if (!password) {
+      throw new BadRequestException('请输入当前密码');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+    if (!user.password) {
+      throw new BadRequestException('账号未设置密码，无法进行二次验证');
+    }
+    this.assertActive(user);
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      throw new UnauthorizedException('密码错误');
+    }
+    // 独立 typ 标记 + 短 TTL：不得当登录凭证用（jwt.strategy 会拒绝 typ=stepup）
+    const token = this.jwtService.sign({ sub: user.id, typ: 'stepup' }, { expiresIn: '5m' });
+    return { token, expiresIn: 300 };
   }
 
   private sanitizeUser(user: any, roles: string[] = []) {

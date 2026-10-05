@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import api from '../utils/api';
+import { clearStepUpCache } from '../utils/stepup';
 
 interface User {
   id: string;
@@ -70,6 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token]);
 
   const login = (newToken: string, newUser: User) => {
+    // 新会话需丢弃上一个账号可能残留的 step-up token（同浏览器不同账号不能复用）
+    clearStepUpCache();
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(newUser));
     setToken(newToken);
@@ -77,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    clearStepUpCache();
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);

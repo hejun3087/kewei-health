@@ -24,6 +24,7 @@ const ShareViewPage = lazy(() => import('./pages/ShareView'));
 const AllAuditPage = lazy(() => import('./pages/admin/AllAudit'));
 const AdminUsersPage = lazy(() => import('./pages/admin/Users'));
 const AllSharesPage = lazy(() => import('./pages/admin/AllShares'));
+const PermissionHistoryPage = lazy(() => import('./pages/admin/PermissionHistory'));
 const ForbiddenPage = lazy(() => import('./pages/Forbidden'));
 
 function App() {
@@ -82,6 +83,15 @@ function App() {
                 element={
                   <RequireRole roles={['SUPER_ADMIN', 'OPERATOR', 'AUDITOR']}>
                     <AllSharesPage />
+                  </RequireRole>
+                }
+              />
+              {/* RBAC P2：权限变更履历（同 audit:read_all 可见域，仅展示 ROLE_GRANT/REVOKE）*/}
+              <Route
+                path="admin/permission-history"
+                element={
+                  <RequireRole roles={['SUPER_ADMIN', 'AUDITOR']}>
+                    <PermissionHistoryPage />
                   </RequireRole>
                 }
               />
