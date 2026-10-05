@@ -29,6 +29,9 @@ const sampleUser = (overrides: any = {}) => ({
 
 const setRoles = (roles: string[]) => authMock.mockReturnValue({ user: { roles } });
 
+// antd Button 对两字中文 label 会自动插入空格（"禁 用"），文本断言需用弹性正则
+const twoCharBtn = (a: string, b: string) => new RegExp(`^${a}\\s*${b}$`);
+
 describe('AdminUsersPage（RBAC P1 用户管理）', () => {
   beforeEach(() => {
     mockGet.mockReset();
@@ -54,15 +57,15 @@ describe('AdminUsersPage（RBAC P1 用户管理）', () => {
     setRoles(['SUPER_ADMIN']);
     mockGet.mockResolvedValue({ data: { total: 1, items: [sampleUser()], page: 1, pageSize: 20 } });
     render(<AdminUsersPage />);
-    await waitFor(() => expect(screen.getByText('禁用')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(twoCharBtn('禁', '用'))).toBeInTheDocument());
   });
 
   it('非 SUPER_ADMIN（AUDITOR）→ 只保留"详情"，不展示启停按钮', async () => {
     setRoles(['AUDITOR']);
     mockGet.mockResolvedValue({ data: { total: 1, items: [sampleUser()], page: 1, pageSize: 20 } });
     render(<AdminUsersPage />);
-    await waitFor(() => expect(screen.getByText('详情')).toBeInTheDocument());
-    expect(screen.queryByText('禁用')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(twoCharBtn('详', '情'))).toBeInTheDocument());
+    expect(screen.queryByText(twoCharBtn('禁', '用'))).not.toBeInTheDocument();
   });
 
   it('DELETED 用户即使 SUPER_ADMIN 也不提供启停（状态机不可逆）', async () => {
@@ -72,8 +75,8 @@ describe('AdminUsersPage（RBAC P1 用户管理）', () => {
     });
     render(<AdminUsersPage />);
     await waitFor(() => expect(screen.getByText('已注销')).toBeInTheDocument());
-    expect(screen.queryByText('禁用')).not.toBeInTheDocument();
-    expect(screen.queryByText('启用')).not.toBeInTheDocument();
+    expect(screen.queryByText(twoCharBtn('禁', '用'))).not.toBeInTheDocument();
+    expect(screen.queryByText(twoCharBtn('启', '用'))).not.toBeInTheDocument();
   });
 
   it('DISABLED 用户（SUPER_ADMIN）→ 展示"启用"按钮', async () => {
@@ -82,7 +85,7 @@ describe('AdminUsersPage（RBAC P1 用户管理）', () => {
       data: { total: 1, items: [sampleUser({ id: 'u3', status: 'DISABLED' })], page: 1, pageSize: 20 },
     });
     render(<AdminUsersPage />);
-    await waitFor(() => expect(screen.getByText('启用')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(twoCharBtn('启', '用'))).toBeInTheDocument());
   });
 
   it('空态：items 为空时展示"暂无用户"', async () => {

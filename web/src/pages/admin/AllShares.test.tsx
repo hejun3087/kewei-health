@@ -38,7 +38,7 @@ describe('AllSharesPage（RBAC P1 跨用户分享管理）', () => {
   it('挂载即以分页参数请求 /admin/shares，渲染分享行（所有者/报告/状态）', async () => {
     setRoles(['SUPER_ADMIN']);
     mockGet.mockResolvedValue({
-      data: { total: 2, items: [sampleShare(), sampleShare({ shareId: 's2', userId: 'u-owner2', active: false, revokedAt: '2026-10-04T00:00:00.000Z' })], page: 1, pageSize: 20 },
+      data: { total: 2, items: [sampleShare(), sampleShare({ shareId: 's2', userId: 'u-owner2', active: false, revokedAt: '2026-10-04T00:00:00.000Z', report: { hospital: '华山', reportType: 'IMAGING', reportDate: '2026-09-20T00:00:00.000Z' } })], page: 1, pageSize: 20 },
     });
     render(<AllSharesPage />);
     await waitFor(() => expect(screen.getByText('u-owner')).toBeInTheDocument());
