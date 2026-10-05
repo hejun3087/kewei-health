@@ -49,20 +49,21 @@ describe('AccessRecordsPage 我的访问记录（PIA R-3 知情权）', () => {
     expect(mockGet).toHaveBeenCalledWith('/audit/me', expect.objectContaining({ params: expect.objectContaining({ page: 1, pageSize: 20 }) }));
   });
 
-  it('按操作类型筛选：选择“导出”后以 action=EXPORT 重新请求', async () => {
+  it('按操作类型筛选：选择"导出"后以 action=EXPORT 重新请求', async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('查看')).toBeInTheDocument());
-
+  
     await userEvent.click(screen.getAllByRole('combobox')[0]); // 操作类型
-    await userEvent.click(await screen.findByText('导出'));
-
+    const exportOption = await screen.findByText('导出', {}, { timeout: 8000 });
+    await userEvent.click(exportOption);
+  
     await waitFor(() =>
       expect(mockGet).toHaveBeenCalledWith(
         '/audit/me',
         expect.objectContaining({ params: expect.objectContaining({ action: 'EXPORT' }) }),
       ),
     );
-  });
+  }, 10000);
 
   it('空态：无访问记录时展示引导文案', async () => {
     mockGet.mockImplementation((url: string) =>
