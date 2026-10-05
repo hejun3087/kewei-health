@@ -27,6 +27,10 @@ describe('AuthService', () => {
       familyMember: {
         create: jest.fn(),
       },
+      userRole: {
+        // RBAC P0：loadUserRoles 默认无角色（新用户 / 普通用户）；个别用例可覆盖
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
     jwtService = { sign: jest.fn().mockReturnValue('fake-jwt-token') };
     service = new AuthService(prisma, jwtService);
@@ -46,7 +50,7 @@ describe('AuthService', () => {
         isDefault: true,
       });
       expect(res.token).toBe('fake-jwt-token');
-      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'u1', phone: '13800001234' });
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'u1', phone: '13800001234', roles: [] });
     });
 
     it('老用户：不重复注册，直接签发 token', async () => {
@@ -128,7 +132,7 @@ describe('AuthService', () => {
 
       const data = prisma.user.create.mock.calls[0][0].data;
       expect(data).toMatchObject({ wxOpenId: 'abc123', wxUnionId: 'union-1', phone: 'wx_abc123' });
-      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'u1' });
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'u1', roles: [] });
       expect(res.token).toBe('fake-jwt-token');
     });
 
@@ -164,13 +168,58 @@ describe('AuthService', () => {
   });
 
   describe('validateUser', () => {
-    it('ACTIVE 用户通过且剥离 password', async () => {
+    it('ACTIVE 用户通过且剥离 password；默认返回 roles 字段（RBAC P0）', async () => {
       prisma.user.findUnique.mockResolvedValue(baseUser({ password: 'hash' }));
 
       const user = await service.validateUser('u1');
 
       expect(user).not.toHaveProperty('password');
       expect(user.status).toBe('ACTIVE');
+      expect(user.roles).toEqual([]);
+    });
+
+    it('validateUser 从 userRole 读取非空角色列表（SUPER_ADMIN/AUDITOR）', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser());
+      prisma.userRole.findMany.mockResolvedValue([{ role: 'SUPER_ADMIN' }, { role: 'AUDITOR' }]);
+
+      const user = await service.validateUser('u1');
+
+      expect(user.roles).toEqual(['SUPER_ADMIN', 'AUDITOR']);
+      // 仅取 revokedAt IS NULL 的活跃行
+      expect(prisma.userRole.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'u1', revokedAt: null },
+          select: { role: true },
+        }),
+      );
+    });
+
+    it('登录时 payload 与返回体都携带 roles（与 validateUser 同一读取路径）', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser());
+      prisma.userRole.findMany.mockResolvedValue([{ role: 'SUPER_ADMIN' }]);
+
+      const res = await service.loginByPhone('13800001234');
+
+      expect(jwtService.sign).toHaveBeenCalledWith({
+        sub: 'u1',
+        phone: '13800001234',
+        roles: ['SUPER_ADMIN'],
+      });
+      expect(res.user.roles).toEqual(['SUPER_ADMIN']);
+    });
+
+    it('loadUserRoles 容错：prisma.userRole 不存在时回退为空数组，不阻断登录主链路', async () => {
+      prisma.user.findUnique.mockResolvedValue(baseUser());
+      prisma.userRole.findMany.mockRejectedValue(new Error('table missing'));
+
+      const res = await service.loginByPhone('13800001234');
+
+      expect(res.token).toBe('fake-jwt-token');
+      expect(jwtService.sign).toHaveBeenCalledWith({
+        sub: 'u1',
+        phone: '13800001234',
+        roles: [],
+      });
     });
 
     it('用户不存在或被禁用（非 ACTIVE）均抛 401', async () => {

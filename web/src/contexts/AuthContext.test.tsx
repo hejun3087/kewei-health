@@ -54,6 +54,23 @@ describe('AuthContext（登录态 Provider + useAuth，5.1.3 前端测试扩面�
     expect(JSON.parse(localStorage.getItem('user') as string).nickname).toBe('云端昵称');
   });
 
+  it('RBAC P0：/auth/me 回传 roles 快照被正确携带至 user.roles（供管理端入口显隐）', async () => {
+    localStorage.setItem('token', 't');
+    getMock.mockResolvedValue({ data: { ...baseUser, roles: ['SUPER_ADMIN'] } });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.user?.roles).toEqual(['SUPER_ADMIN']);
+    expect(JSON.parse(localStorage.getItem('user') as string).roles).toEqual(['SUPER_ADMIN']);
+  });
+
+  it('RBAC P0：旧后端未返回 roles 时，user.roles 为 undefined，不影响既有登录链路', async () => {
+    localStorage.setItem('token', 't');
+    getMock.mockResolvedValue({ data: { ...baseUser } });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.user?.roles).toBeUndefined();
+  });
+
   it('有 token 但 /auth/me 失败：清除 token 与用户', async () => {
     localStorage.setItem('token', 't');
     localStorage.setItem('user', JSON.stringify(baseUser));

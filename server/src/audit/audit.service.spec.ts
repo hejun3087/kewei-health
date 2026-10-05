@@ -162,3 +162,53 @@ describe('AuditService.queryOwn', () => {
     expect(prisma.auditLog.findMany.mock.calls[0][0].orderBy).toEqual({ createdAt: 'desc' });
   });
 });
+
+describe('AuditService.queryAll（RBAC P0 管理端跨用户查询）', () => {
+  let prisma: any;
+  let svc: AuditService;
+
+  beforeEach(() => {
+    prisma = {
+      auditLog: {
+        count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    svc = new AuditService(prisma);
+  });
+
+  it('无 userId 时 where 不包含 userId（不强制本人，全量可查）', async () => {
+    await svc.queryAll({});
+    const where = prisma.auditLog.findMany.mock.calls[0][0].where;
+    expect(where.userId).toBeUndefined();
+    expect(where).toEqual({});
+  });
+
+  it('可选 userId 过滤：传入即写进 where（定位单一主体）', async () => {
+    await svc.queryAll({ userId: 'u42', action: 'EXPORT' });
+    const where = prisma.auditLog.findMany.mock.calls[0][0].where;
+    expect(where).toMatchObject({ userId: 'u42', action: 'EXPORT' });
+  });
+
+  it('分页与上限：pageSize>100 截断为 100，skip 与 queryOwn 同构', async () => {
+    await svc.queryAll({ page: '2', pageSize: '500' });
+    const arg = prisma.auditLog.findMany.mock.calls[0][0];
+    expect(arg.take).toBe(100);
+    expect(arg.skip).toBe(100);
+  });
+
+  it('时间范围与 success 归一与 queryOwn 一致', async () => {
+    await svc.queryAll({ success: 'true', from: '2026-01-01', to: '2026-12-31' });
+    const where = prisma.auditLog.findMany.mock.calls[0][0].where;
+    expect(where.success).toBe(true);
+    expect(where.createdAt.gte).toBeInstanceOf(Date);
+    expect(where.createdAt.lte).toBeInstanceOf(Date);
+  });
+
+  it('返回结构：{ total, items, page, pageSize }', async () => {
+    prisma.auditLog.count.mockResolvedValue(128);
+    prisma.auditLog.findMany.mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
+    const res = await svc.queryAll({ page: 3, pageSize: 20 });
+    expect(res).toEqual({ total: 128, items: [{ id: 'a' }, { id: 'b' }], page: 3, pageSize: 20 });
+  });
+});

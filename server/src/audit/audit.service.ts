@@ -133,4 +133,58 @@ export class AuditService {
     // createdAt 等 Date/BigInt 字段序列化：Date 由 Nest JSON 输出为 ISO 串，此处原样返回
     return { total, items, page, pageSize };
   }
+
+  /**
+   * 跨用户全量审计日志查询（管理端，docs/rbac-design.md P0 首落点）。
+   * 与 queryOwn 同构，但不强制 userId；可选 userId 过滤定位单一主体。
+   * 需与 `@Roles(SUPER_ADMIN, AUDITOR)` + `@Permissions(AUDIT_READ_ALL)` 配合使用，
+   * 控制器侧未命中即 403；Service 层不重复授权判定，以保持单一职责（与 queryOwn 对齐）。
+   */
+  async queryAll(
+    query: {
+      userId?: string;
+      action?: string;
+      resourceType?: string;
+      success?: string | boolean;
+      from?: string;
+      to?: string;
+      page?: number | string;
+      pageSize?: number | string;
+    } = {},
+  ) {
+    const where: any = {};
+    if (query.userId) where.userId = String(query.userId);
+    if (query.action) where.action = String(query.action);
+    if (query.resourceType) where.resourceType = String(query.resourceType);
+    if (query.success !== undefined && query.success !== '' && query.success !== null) {
+      where.success = String(query.success) === 'true';
+    }
+    if (query.from || query.to) {
+      const range: Record<string, Date> = {};
+      if (query.from) {
+        const d = new Date(query.from);
+        if (!isNaN(d.getTime())) range.gte = d;
+      }
+      if (query.to) {
+        const d = new Date(query.to);
+        if (!isNaN(d.getTime())) range.lte = d;
+      }
+      if (Object.keys(range).length) where.createdAt = range;
+    }
+
+    const page = Math.max(1, parseInt(String(query.page), 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(String(query.pageSize), 10) || 20));
+
+    const [total, items] = await Promise.all([
+      this.prisma.auditLog.count({ where }),
+      this.prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    return { total, items, page, pageSize };
+  }
 }

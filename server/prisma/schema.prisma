@@ -42,6 +42,7 @@ model User {
   uploads       Upload[]
   subscription  Subscription? // 会员订阅（一对一）
   paymentOrders PaymentOrder[] // 支付订单历史
+  userRoles     UserRole[]    // RBAC 角色分配（docs/rbac-design.md P0；软撤销 revokedAt 保留历史）
 }
 
 /// 家庭成员表
@@ -251,6 +252,33 @@ enum UserStatus {
   ACTIVE    // 正常
   DISABLED  // 禁用
   DELETED   // 已注销
+}
+
+// ==================== RBAC（docs/rbac-design.md P0） ====================
+
+/// 内置角色（4 值硬编码，权限矩阵在代码常量维护；DB 动态角色明确不做）
+enum Role {
+  SUPER_ADMIN // 超级管理员：全量权限（含角色授予/撤销）
+  OPERATOR    // 运营：内容/用户运营，不默认读取健康数据明细
+  SUPPORT     // 客服：仅工单/基础信息，无健康数据读取权（PIPL 最小必要）
+  AUDITOR     // 审计员：跨用户查看审计日志（解锁 PIA R-3 尾项），只读
+}
+
+/// 用户-角色关联表（独立表，不改 User 列；软撤销 revokedAt 保留历史以便审计追溯）
+model UserRole {
+  id        String    @id @default(cuid())
+  userId    String
+  role      Role
+  grantedBy String?   // 授予者 userId（种子脚本可空）
+  grantedAt DateTime  @default(now())
+  revokedAt DateTime? // 非空即视为已撤销；roles 快照与 Guard 校验仅取 revokedAt IS NULL 的行
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 同一 (userId, role) 仅允许一条 revokedAt IS NULL 的活跃行，由应用层（授予前先撤销旧行）保证；
+  // 避免使用 PostgreSQL partial unique index（Prisma schema 暂不直接支持），历史行保留以便追溯。
+  @@index([userId, role, revokedAt])
+  @@index([role, revokedAt])
 }
 
 enum Gender {

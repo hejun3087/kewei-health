@@ -14,6 +14,7 @@ import {
   ShareAltOutlined,
   HistoryOutlined,
   MenuOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -31,6 +32,15 @@ const menuItems = [
   { key: '/access-records', icon: <HistoryOutlined />, label: '访问记录' },
   { key: '/profile', icon: <UserOutlined />, label: '个人中心' },
 ];
+
+// RBAC P0：管理端菜单项（仅对持有 SUPER_ADMIN / AUDITOR 的用户展现）。
+// 隐藏菜单仅为体验，不是安全边界；实际路由与管理端 API 受 RequireRole + 后端 RolesGuard 双重保护。
+const ADMIN_MENU_ITEM = {
+  key: '/admin/audit',
+  icon: <SafetyCertificateOutlined />,
+  label: '管理端日志',
+};
+const ADMIN_VISIBLE_ROLES = ['SUPER_ADMIN', 'AUDITOR'];
 
 export default function MainLayout() {
   const navigate = useNavigate();
@@ -54,12 +64,19 @@ export default function MainLayout() {
 
   const selectedKey = location.pathname === '/' ? '/' : '/' + location.pathname.split('/')[1];
 
+  // 基于后端 /auth/me 回传的角色快照动态拼接菜单（普通用户不展示管理端入口）
+  const userRoles = Array.isArray(user?.roles) ? user!.roles! : [];
+  const canSeeAdmin = ADMIN_VISIBLE_ROLES.some((r) => userRoles.includes(r));
+  const visibleMenuItems = canSeeAdmin
+    ? [...menuItems.slice(0, menuItems.length - 1), ADMIN_MENU_ITEM, menuItems[menuItems.length - 1]]
+    : menuItems;
+
   // 菜单内容桌面/移动共用一份
   const renderMenu = (onNavigate?: () => void) => (
     <Menu
       mode="inline"
       selectedKeys={[selectedKey]}
-      items={menuItems}
+      items={visibleMenuItems}
       onClick={({ key }) => {
         navigate(key);
         onNavigate?.();

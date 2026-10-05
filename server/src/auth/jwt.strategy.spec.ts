@@ -14,13 +14,23 @@ describe('JwtStrategy.validate（令牌校验）', () => {
     ).rejects.toThrow(UnauthorizedException);
   });
 
-  it('普通登录令牌返回 {userId, phone}', async () => {
-    const res = await strategy.validate({ sub: 'u1', phone: '13800000000' });
-    expect(res).toEqual({ userId: 'u1', phone: '13800000000' });
+  it('普通登录令牌返回 {userId, phone, roles}', async () => {
+    const res = await strategy.validate({ sub: 'u1', phone: '13800000000', roles: ['SUPER_ADMIN'] });
+    expect(res).toEqual({ userId: 'u1', phone: '13800000000', roles: ['SUPER_ADMIN'] });
   });
 
-  it('仅含 sub 的令牌（微信登录）userId 正常、phone 为 undefined', async () => {
+  it('仅含 sub 的令牌（微信登录）userId 正常、phone 为 undefined、roles 为空数组', async () => {
     const res = await strategy.validate({ sub: 'u2' });
-    expect(res).toEqual({ userId: 'u2', phone: undefined });
+    expect(res).toEqual({ userId: 'u2', phone: undefined, roles: [] });
+  });
+
+  it('向下兼容：旧 token 无 roles 字段 → 归一为空数组（RBAC P0前签发的 token不抛错）', async () => {
+    const res = await strategy.validate({ sub: 'u3', phone: '13800000003' });
+    expect(res.roles).toEqual([]);
+  });
+
+  it('容错：roles 非数组（垃圾 payload）→ 归一为空数组', async () => {
+    const res = await strategy.validate({ sub: 'u4', roles: 'not-array' });
+    expect(res.roles).toEqual([]);
   });
 });

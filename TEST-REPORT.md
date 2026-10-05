@@ -1,22 +1,23 @@
 # 可为健康 — 自动化测试报告（5.2.1）
 
-> 报告日期：2026-10-04 ｜ 范围：后端（NestJS）+ Web 前端（React）自动化测试全量执行结果
+> 报告日期：2026-10-05 ｜ 范围：后端（NestJS）+ Web 前端（React）自动化测试全量执行结果
 > 执行环境：本地 Windows / Node 20；CI（GitHub Actions, ubuntu-latest, Node 20）均已验证通过
 
 ## 一、执行总览
 
 | 层级 | 框架 | 套件 / 文件 | 用例数 | 结果 |
 |------|------|-----------|--------|------|
-| 后端单元测试（Service/Controller/拦截器/加密基座+中间件） | Jest + ts-jest | 23 | 200 | ✅ 全过 |
-| 后端接口集成测试（HTTP 层） | supertest + @nestjs/testing | 12 | 58 | ✅ 全过 |
-| 前端组件测试 | Vitest + @testing-library/react + jsdom | 10 | 33 | ✅ 全过 |
-| **合计（自动化）** | | **45** | **291** | ✅ **全绿** |
+| 后端单元测试（Service/Controller/拦截器/加密基座+中间件/RBAC Guard） | Jest + ts-jest | 24 | 216 | ✅ 全过 |
+| 后端接口集成测试（HTTP 层） | supertest + @nestjs/testing | 13 | 69 | ✅ 全过 |
+| 前端组件测试 | Vitest + @testing-library/react + jsdom | 12 | 43 | ✅ 全过 |
+| **合计（自动化）** | | **49** | **328** | ✅ **全绿** |
 | 前后端契约回归 | `server/e2e-test.ps1`（需运行中的服务 + DB） | — | 报告/诊断/用药/会员主流程 | ⏸ 需部署环境手动执行 |
 | 微信小程序 | 无自动化测试脚本 | 0 | 0 | — 仅 `build:mp-weixin` 编译校验 |
 
 - 后端命令：`npm test -w server`（全量）· `npm run test:cov -w server`（含覆盖率门禁）
 - 前端命令：`npm test -w web`
 - CI 已接入：`npm test -w server` + `npm test -w web`（push/PR 每次执行）
+- 更新（RBAC P0 批次 2026-10-05）：后端新增 `rbac/roles.guard.spec.ts`（9）+ `admin/admin.controller.spec.ts`（8，守卫链集成），并扩 `auth.service`（+4）/`audit.service.queryAll`（+5）/`jwt.strategy`（+2），本地全量 **37 套件/285 用例全绿**；前端新增 `RequireRole`（5）+ `admin/AllAudit`（3）、扩 `AuthContext`（+2）。
 
 ## 二、后端覆盖率（Jest --coverage，门禁 Stmts/Lines ≥ 80%）
 
@@ -35,7 +36,7 @@
 
 ## 三、前端测试（Vitest）
 
-覆盖 10 个模块，共 33 用例（含 PIA R-5 家庭成员录入授权二次确认、R-1 敏感个人信息单独同意弹窗、R-6 我的分享列表/撤销、R-3 我的访问记录端到端）：
+覆盖 12 个模块，共 43 用例（含 PIA R-5 家庭成员录入授权二次确认、R-1 敏感个人信息单独同意弹窗、R-6 我的分享列表/撤销、R-3 我的访问记录端到端、RBAC P0 管理端入口/路由守卫）：
 
 - **EmptyGuide**（列表空态引导）：描述文案渲染 / 默认按钮「去添加」/ 自定义 actionText / 点击触发 onAction
 - **ErrorBoundary**（全局错误边界）：正常时渲染 children / 子组件抛错时渲染兜底页（含错误信息 + 刷新/返回按钮）
@@ -44,6 +45,8 @@
 - **AuthContext**（登录态 Provider + useAuth，7 用例）：无 token 无缓存不请求、无 token 但本地有缓存直接回填、有 token 拉 /auth/me 回填并写缓存、/auth/me 失败清态、login 写 localStorage、logout 清理、无 Provider 时返回默认上下文
 - **MyShares**（我的分享列表/撤销，R-6 端到端，3 用例）：列表与 /reports join 展示报告信息 + 状态标签（生效中/已过期/已撤销）+ 未匹配报告 fallback；点撤销→二次确认后调用 `DELETE /share/:id` 并刷新；无记录时展示引导空态
 - **AccessRecords**（我的访问记录，R-3 知情权端到端，3 用例）：`GET /audit/me` 分页列表映射中文操作/数据对象标签与成功/失败状态并展示总数；按操作类型筛选后以 `action=EXPORT` 重新请求；无记录时展示空态
+- **RequireRole**（RBAC P0 前端路由守卫，5 用例）：持匹配角色渲染 children；持其它角色放行；无匹配角色/未登录/旧后端无 roles 字段 → 渲染 403 兜底
+- **admin/AllAudit**（管理端跨用户审计，R-3 尾项端到端，3 用例）：`GET /admin/audit` 分页列表含 userId 列与 `(免登录)` 占位；空态提示；首拉请求路径/参数断言
 
 > 未启用 V8/istanbul 覆盖率采集（前端以行为断言为主）。
 
@@ -62,6 +65,6 @@
 
 ## 五、结论
 
-- 后端 Service 层与 Controller HTTP 层已建立完整自动化测试（**258 用例全绿**，本批新增 `retention/data-retention.service.spec.ts` 6 用例覆盖 PIA R-9 注销到期物理清除/匿名化任务：查询条件、删除面（健康数据+分享链接）、账号匿名化、保留 AuditLog/不删 User 行、`deleted_` 墓碑幂等跳过、异常不抛），覆盖率门禁固化进配置，随 CI 持续守护。
-- 前端测试基建从零建成并接入 CI，覆盖关键展示/容错组件与核心业务逻辑（登录态 Context + API 拦截器 + PIA 隐私提示与家庭成员授权二次确认 + 分享列表/撤销端到端（R-6）+ 本人访问记录查看/筛选端到端（R-3））。小程序端 R-3 访问记录页已接入并编译校验通过（`build:mp-weixin` DONE）。
+- 后端 Service 层与 Controller HTTP 层已建立完整自动化测试（**285 用例全绿**，本批 RBAC P0 新增 `rbac/roles.guard.spec.ts` 9 用例覆盖无标注放行/角色命中与未命中/权限并集覆盖与缺失/SUPPORT 无 health 权限关键边界/req.user 缺失兜底，`admin/admin.controller.spec.ts` 8 用例走完整守卫链（mock JwtAuthGuard + 真实 RolesGuard）验证 SUPER_ADMIN/AUDITOR 200、SUPPORT/OPERATOR/普通用户 403、未登录 401，另扩 auth/audit/jwt.strategy 11 用例；此前 `retention/data-retention.service.spec.ts` 6 用例覆盖 PIA R-9），覆盖率门禁固化进配置，随 CI 持续守护。
+- 前端测试基建从零建成并接入 CI，覆盖关键展示/容错组件与核心业务逻辑（登录态 Context + API 拦截器 + PIA 隐私提示与家庭成员授权二次确认 + 分享列表/撤销端到端（R-6）+ 本人访问记录查看/筛选端到端（R-3）+ RBAC P0 管理端路由守卫 RequireRole 与全量审计页 AllAudit 端到端）。小程序端 R-3 访问记录页已接入并编译校验通过（`build:mp-weixin` DONE）。
 - 阶段五「自动化测试脚本」（5.1.x）与「全面测试执行」的安全审计（5.2.3）均已关账；余下性能/兼容性/真机/契约联调类依赖外部运行环境，待部署后推进。

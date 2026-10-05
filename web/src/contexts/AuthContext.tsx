@@ -15,6 +15,9 @@ interface User {
   status: string;
   storageUsed: string;
   storageLimit: string;
+  // RBAC P0（docs/rbac-design.md）：后端 /auth/me 返回签发时角色快照，
+  // 前端据此显隐管理端菜单与路由；实际授权以后端 RolesGuard 为准。
+  roles?: string[];
 }
 
 interface AuthContextType {

@@ -18,6 +18,8 @@ import { MemberModule } from './member/member.module';
 import { ExportModule } from './export/export.module';
 import { ShareModule } from './share/share.module';
 import { RetentionModule } from './retention/retention.module';
+import { RbacModule } from './rbac/rbac.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { RetentionModule } from './retention/retention.module';
     ExportModule,
     ShareModule,
     RetentionModule,
+    RbacModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

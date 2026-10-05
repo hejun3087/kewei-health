@@ -20,6 +20,23 @@ export class AuthService {
     }
   }
 
+  /**
+   * 读取用户当前活跃角色列表（docs/rbac-design.md P0）：
+   * 仅取 `revokedAt IS NULL` 行（软撤销保留历史）。新建档用户默认无任何管理角色，返回空数组。
+   * 失败（无 userRole 表/异常）回退为空数组，不阻断登录主链路（JWT payload 无 roles 时 Guard 自然 403）。
+   */
+  private async loadUserRoles(userId: string): Promise<string[]> {
+    try {
+      const rows = await this.prisma.userRole.findMany({
+        where: { userId, revokedAt: null },
+        select: { role: true },
+      });
+      return rows.map((r: { role: string }) => r.role);
+    } catch {
+      return [];
+    }
+  }
+
   // 手机号 + 验证码登录（简化版：验证码暂不实现，直接用手机号注册/登录）
   async loginByPhone(phone: string) {
     let user = await this.prisma.user.findUnique({ where: { phone } });
@@ -44,8 +61,9 @@ export class AuthService {
     }
 
     this.assertActive(user);
-    const token = this.jwtService.sign({ sub: user.id, phone: user.phone });
-    return { token, user: this.sanitizeUser(user) };
+    const roles = await this.loadUserRoles(user.id);
+    const token = this.jwtService.sign({ sub: user.id, phone: user.phone, roles });
+    return { token, user: this.sanitizeUser(user, roles) };
   }
 
   // 账号密码登录
@@ -61,8 +79,9 @@ export class AuthService {
     }
 
     this.assertActive(user);
-    const token = this.jwtService.sign({ sub: user.id, phone: user.phone });
-    return { token, user: this.sanitizeUser(user) };
+    const roles = await this.loadUserRoles(user.id);
+    const token = this.jwtService.sign({ sub: user.id, phone: user.phone, roles });
+    return { token, user: this.sanitizeUser(user, roles) };
   }
 
   // 注册（设置密码）
@@ -87,8 +106,10 @@ export class AuthService {
       },
     });
 
-    const token = this.jwtService.sign({ sub: user.id, phone: user.phone });
-    return { token, user: this.sanitizeUser(user) };
+    // 新建账号无角色（SUPER_ADMIN 由 seed 脚本事后分配）
+    const roles = await this.loadUserRoles(user.id);
+    const token = this.jwtService.sign({ sub: user.id, phone: user.phone, roles });
+    return { token, user: this.sanitizeUser(user, roles) };
   }
 
   // 微信登录
@@ -115,8 +136,9 @@ export class AuthService {
     }
 
     this.assertActive(user);
-    const token = this.jwtService.sign({ sub: user.id });
-    return { token, user: this.sanitizeUser(user) };
+    const roles = await this.loadUserRoles(user.id);
+    const token = this.jwtService.sign({ sub: user.id, roles });
+    return { token, user: this.sanitizeUser(user, roles) };
   }
 
   // 验证Token
@@ -125,10 +147,11 @@ export class AuthService {
     if (!user || user.status !== 'ACTIVE') {
       throw new UnauthorizedException();
     }
-    return this.sanitizeUser(user);
+    const roles = await this.loadUserRoles(userId);
+    return this.sanitizeUser(user, roles);
   }
 
-  private sanitizeUser(user: any) {
+  private sanitizeUser(user: any, roles: string[] = []) {
     const { password, ...result } = user;
     // BigInt 转 String，避免 JSON 序列化报错
     return {
@@ -138,6 +161,8 @@ export class AuthService {
       medicalHistory: decryptField(result.medicalHistory),
       storageUsed: result.storageUsed?.toString() || '0',
       storageLimit: result.storageLimit?.toString() || '1073741824',
+      // RBAC P0：前端据此显隐管理端菜单/路由；JWT payload 同名字段为签发时快照
+      roles,
     };
   }
 }

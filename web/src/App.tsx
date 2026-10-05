@@ -4,6 +4,7 @@ import { Spin } from 'antd';
 import { useAuth } from './contexts/AuthContext';
 import MainLayout from './layouts/MainLayout';
 import LoginPage from './pages/Login';
+import RequireRole from './components/RequireRole';
 
 // 性能优化（1.3.6）：路由级懒加载，首屏只加载 Login/Home，其余页面按需拆包
 const HomePage = lazy(() => import('./pages/Home'));
@@ -20,6 +21,8 @@ const MySharesPage = lazy(() => import('./pages/MyShares'));
 const AccessRecordsPage = lazy(() => import('./pages/AccessRecords'));
 const NotFoundPage = lazy(() => import('./pages/NotFound'));
 const ShareViewPage = lazy(() => import('./pages/ShareView'));
+const AllAuditPage = lazy(() => import('./pages/admin/AllAudit'));
+const ForbiddenPage = lazy(() => import('./pages/Forbidden'));
 
 function App() {
   const { token, loading } = useAuth();
@@ -53,6 +56,16 @@ function App() {
               <Route path="shares" element={<MySharesPage />} />
               <Route path="access-records" element={<AccessRecordsPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              {/* RBAC P0：管理端路由（前端守卫仅为体验，后端 RolesGuard 为实际安全边界）*/}
+              <Route
+                path="admin/audit"
+                element={
+                  <RequireRole roles={['SUPER_ADMIN', 'AUDITOR']}>
+                    <AllAuditPage />
+                  </RequireRole>
+                }
+              />
+              <Route path="403" element={<ForbiddenPage />} />
               {/* 404（2.4.3）：登录后访问不存在路由，保留导航框架 */}
               <Route path="*" element={<NotFoundPage />} />
             </Route>
