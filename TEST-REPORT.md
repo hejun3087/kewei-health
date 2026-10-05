@@ -66,5 +66,5 @@
 ## 五、结论
 
 - 后端 Service 层与 Controller HTTP 层已建立完整自动化测试（**285 用例全绿**，本批 RBAC P0 新增 `rbac/roles.guard.spec.ts` 9 用例覆盖无标注放行/角色命中与未命中/权限并集覆盖与缺失/SUPPORT 无 health 权限关键边界/req.user 缺失兜底，`admin/admin.controller.spec.ts` 8 用例走完整守卫链（mock JwtAuthGuard + 真实 RolesGuard）验证 SUPER_ADMIN/AUDITOR 200、SUPPORT/OPERATOR/普通用户 403、未登录 401，另扩 auth/audit/jwt.strategy 11 用例；此前 `retention/data-retention.service.spec.ts` 6 用例覆盖 PIA R-9），覆盖率门禁固化进配置，随 CI 持续守护。
-- 前端测试基建从零建成并接入 CI，覆盖关键展示/容错组件与核心业务逻辑（登录态 Context + API 拦截器 + PIA 隐私提示与家庭成员授权二次确认 + 分享列表/撤销端到端（R-6）+ 本人访问记录查看/筛选端到端（R-3）+ RBAC P0 管理端路由守卫 RequireRole 与全量审计页 AllAudit 端到端）。小程序端 R-3 访问记录页已接入并编译校验通过（`build:mp-weixin` DONE）。
+- 前端测试基建从零建成并接入 CI，覆盖关键展示/容错组件与核心业务逻辑（登录态 Context + API 拦截器 + PIA 隐私提示与家庭成员授权二次确认 + 分享列表/撤销端到端（R-6）+ 本人访问记录查看/筛选端到端（R-3）+ RBAC P0 管理端路由守卫 RequireRole 与全量审计页 AllAudit 端到端）。本地 `npm run build -w web` 绿；vitest 全量本地执行受 Windows 环境阻断（PowerShell 管道 OOM + 本地 Node 24 与 vitest 1.6 worker 不兼容），**已由 CI（ubuntu）验证全绿：12 文件/43 用例通过，后端同 run 37 套件全过**。小程序端 R-3 访问记录页已接入并编译校验通过（`build:mp-weixin` DONE）。
 - 阶段五「自动化测试脚本」（5.1.x）与「全面测试执行」的安全审计（5.2.3）均已关账；余下性能/兼容性/真机/契约联调类依赖外部运行环境，待部署后推进。
