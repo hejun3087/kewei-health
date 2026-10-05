@@ -9,8 +9,8 @@
 |------|------|-----------|--------|------|
 | 后端单元测试（Service/Controller/拦截器/加密基座+中间件/RBAC Guard） | Jest + ts-jest | 25 | 232 | ✅ 全过 |
 | 后端接口集成测试（HTTP 层） | supertest + @nestjs/testing | 13 | 69 | ✅ 全过 |
-| 前端组件测试 | Vitest + @testing-library/react + jsdom | 14 | 54 | ✅ 全过（RBAC P1 新增 11 例待 CI 复验） |
-| **合计（自动化）** | | **52** | **355** | ✅ **全绿**（Web 新例以 CI 为准） |
+| 前端组件测试 | Vitest + @testing-library/react + jsdom | 14 | 54 | ✅ 全过（CI run 37323084313：14 files passed） |
+| **合计（自动化）** | | **52** | **355** | ✅ **全绿** |
 | 前后端契约回归 | `server/e2e-test.ps1`（需运行中的服务 + DB） | — | 报告/诊断/用药/会员主流程 | ⏸ 需部署环境手动执行 |
 | 微信小程序 | 无自动化测试脚本 | 0 | 0 | — 仅 `build:mp-weixin` 编译校验 |
 
@@ -18,7 +18,7 @@
 - 前端命令：`npm test -w web`
 - CI 已接入：`npm test -w server` + `npm test -w web`（push/PR 每次执行）
 - 更新（RBAC P0 批次 2026-10-05）：后端新增 `rbac/roles.guard.spec.ts`（9）+ `admin/admin.controller.spec.ts`（8，守卫链集成），并扩 `auth.service`（+4）/`audit.service.queryAll`（+5）/`jwt.strategy`（+2），本地全量 **37 套件/285 用例全绿**；前端新增 `RequireRole`（5）+ `admin/AllAudit`（3）、扩 `AuthContext`（+2）。
-- 更新（RBAC P1 批次 2026-10-05）：后端 `admin.controller.spec` 8→16（P1 六新端点元数据/角色边界矩阵：授撤角色与强制撤销/禁用仅 SUPER_ADMIN，OPERATOR/AUDITOR 越权 403）+ 新增 `admin.service.spec`（8：响应脱敏/状态机校验/角色软撤销/分享 active 过滤/幂等撤销/审计留痕），本地全量 **38 套件/301 用例全绿**，`nest build` 绿；前端新增 `admin/AllShares`（5）+ `admin/Users`（6）页单测（角色显隐/脱敏渲染/空态/按钮可见性），`npm run build -w web` 绿；vitest 全量本地仍受 Windows 环境阻断，待 CI 复验（预期 14 文件/54 例）。
+- 更新（RBAC P1 批次 2026-10-05）：后端 `admin.controller.spec` 8→16（P1 六新端点元数据/角色边界矩阵：授撤角色与强制撤销/禁用仅 SUPER_ADMIN，OPERATOR/AUDITOR 越权 403）+ 新增 `admin.service.spec`（8：响应脱敏/状态机校验/角色软撤销/分享 active 过滤/幂等撤销/审计留痕），本地全量 **38 套件/301 用例全绿**，`nest build` 绿；前端新增 `admin/AllShares`（5）+ `admin/Users`（6）页单测（角色显隐/脱敏渲染/空态/按钮可见性），`npm run build -w web` 绿；vitest 全量本地仍受 Windows 环境阻断，**已经 CI（ubuntu）复验全绿：14 文件/54 用例（run 37323084313；首跑因 antd 两字中文按钮自动插空格导致文本断言失败 4 例，已改用弹性正则修复）**。
 
 ## 二、后端覆盖率（Jest --coverage，门禁 Stmts/Lines ≥ 80%）
 
@@ -69,5 +69,5 @@
 ## 五、结论
 
 - 后端 Service 层与 Controller HTTP 层已建立完整自动化测试（**301 用例全绿**，本批 RBAC P1 新增 `admin/admin.service.spec.ts` 8 用例覆盖 `/admin/users*`/`/admin/shares*` DB 逻辑：响应脱敏（不含 password hash/wx 标识/BigInt）、启停状态机拒绝 DELETED 覆写、角色授予先软撤销再创建、分享 active 内存过滤 + 报告 join、跨 owner 撤销幂等，每操作落 resourceType=ADMIN 审计；`admin.controller.spec.ts` 扩至 16 用例验证 P1 六新端点双装饰器（@Roles+@Permissions）与越权 403 矩阵；此前 RBAC P0 的 `rbac/roles.guard.spec.ts` 9 用例覆盖无标注放行/角色命中与未命中/权限并集覆盖与缺失/SUPPORT 无 health 权限关键边界/req.user 缺失兜底，`retention/data-retention.service.spec.ts` 6 用例覆盖 PIA R-9），覆盖率门禁固化进配置，随 CI 持续守护。
-- 前端测试基建从零建成并接入 CI，覆盖关键展示/容错组件与核心业务逻辑（登录态 Context + API 拦截器 + PIA 隐私提示与家庭成员授权二次确认 + 分享列表/撤销端到端（R-6）+ 本人访问记录查看/筛选端到端（R-3）+ RBAC P0 管理端路由守卫 RequireRole 与全量审计页 AllAudit 端到端 + RBAC P1 用户管理/跨用户分享管理页端到端）。本地 `npm run build -w web` 绿；vitest 全量本地执行受 Windows 环境阻断（PowerShell 管道 OOM + 本地 Node 24 与 vitest 1.6 worker 不兼容），**P0 批次已由 CI（ubuntu）验证全绿：12 文件/43 用例；P1 新增 2 文件/11 例待本次 CI 复验（预期 14 文件/54 例）**，后端同 run 38 套件本地全绿。小程序端 R-3 访问记录页已接入并编译校验通过（`build:mp-weixin` DONE）；管理端按决策 v1 不做小程序侧。
+- 前端测试基建从零建成并接入 CI，覆盖关键展示/容错组件与核心业务逻辑（登录态 Context + API 拦截器 + PIA 隐私提示与家庭成员授权二次确认 + 分享列表/撤销端到端（R-6）+ 本人访问记录查看/筛选端到端（R-3）+ RBAC P0 管理端路由守卫 RequireRole 与全量审计页 AllAudit 端到端 + RBAC P1 用户管理/跨用户分享管理页端到端）。本地 `npm run build -w web` 绿；vitest 全量本地执行受 Windows 环境阻断（PowerShell 管道 OOM + 本地 Node 24 与 vitest 1.6 worker 不兼容），**P0/P1 批次均已由 CI（ubuntu）验证全绿：P1 后 14 文件/54 用例（run 37323084313），后端同 run 38 套件全绿**。小程序端 R-3 访问记录页已接入并编译校验通过（`build:mp-weixin` DONE）；管理端按决策 v1 不做小程序侧。
 - 阶段五「自动化测试脚本」（5.1.x）与「全面测试执行」的安全审计（5.2.3）均已关账；余下性能/兼容性/真机/契约联调类依赖外部运行环境，待部署后推进。
