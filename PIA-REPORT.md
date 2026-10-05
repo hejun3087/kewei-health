@@ -57,7 +57,7 @@
 **未实现 / 差距**：
 
 - ✅ **健康数据 AES-256 静态加密**（**已全部落地，6.1.6**）：加密基座——AES-256-GCM + `DATA_ENCRYPTION_KEY`（env，生产 fail-fast，密钥绝不入库）+ 版本化自描述 token（`enc:v1:` 前缀，兼容存量明文、加密幂等、GCM 完整性校验）。覆盖范围：`User.allergyHistory/medicalHistory`（service 层收敛加解密）+ **集中式 Prisma 中间件**透明加解密 `Report.summary`/`Diagnosis.complaint·diagnosisText·advice`/`Medication.notes`（写前加密、读后解密，一次覆盖列表/详情/搜索/概览/导出/分享等全部读写面，避免逐点漏解密）。存量明文一次性回填脚本 `db:backfill-encrypt`（幂等）已就绪。（对应 R-2，已缓解。**部署门槛**：上线前须注入与 App 一致的 `DATA_ENCRYPTION_KEY` 并执行回填脚本；`Report.summary` 因密文化已从 DB 模糊搜索移除，保留医院+指标名检索）
-- ✅ **数据访问审计日志**（**已于 6.1.7 落地，并含 R-3 尾项增强**）：`AuditLog` 表 + 全局 `AuditInterceptor`，对报告/诊断/用药/家庭成员/上传/用户档案的读写及导出、分享查看留痕（userId/action/resourceType/resourceId/ip/UA/success/时间）。**增强**：①登录成功/失败均留痕（`action=LOGIN`/`resourceType=AUTH`，失败记录脱敏账号 + 状态码，便于追溯爆破/枚举）；②新增只读查询端点 `GET /audit/me`，登录用户可查**本人**健康数据的访问记录（数据主体知情权，分页+过滤；userId 由已鉴权 `req.user` 强制注入，仅能查本人）。**Web 端已接入端到端**：新增「访问记录」页（`web/src/pages/AccessRecords.tsx`，路由 `/access-records` + 侧边菜单入口），分页展示本人健康数据的操作类型/数据对象/结果/IP/设备，可按操作类型、数据对象、结果、时间范围筛选（`web/src/pages/AccessRecords.test.tsx` 3 用例），形成 R-3 数据主体知情权 Web 闭环；小程序端访问记录页作为后续项。部署需 `prisma migrate deploy` 建表。（对应 R-3，Web 端到端已缓解）
+- ✅ **数据访问审计日志**（**已于 6.1.7 落地，并含 R-3 尾项增强**）：`AuditLog` 表 + 全局 `AuditInterceptor`，对报告/诊断/用药/家庭成员/上传/用户档案的读写及导出、分享查看留痕（userId/action/resourceType/resourceId/ip/UA/success/时间）。**增强**：①登录成功/失败均留痕（`action=LOGIN`/`resourceType=AUTH`，失败记录脱敏账号 + 状态码，便于追溯爆破/枚举）；②新增只读查询端点 `GET /audit/me`，登录用户可查**本人**健康数据的访问记录（数据主体知情权，分页+过滤；userId 由已鉴权 `req.user` 强制注入，仅能查本人）。**Web 端已接入端到端**：新增「访问记录」页（`web/src/pages/AccessRecords.tsx`，路由 `/access-records` + 侧边菜单入口），分页展示本人健康数据的操作类型/数据对象/结果/IP/设备，可按操作类型、数据对象、结果、时间范围筛选（`web/src/pages/AccessRecords.test.tsx` 3 用例），形成 R-3 数据主体知情权 Web 闭环；**小程序端亦已接入端到端**：「我的-访问记录」页（`miniprogram/src/pages/audit/list.vue`，路由注册 + `mine/index.vue` 入口）分页展示本人健康数据访问记录，支持按操作类型、数据对象、结果筛选，触底加载下一页 + 下拉刷新。形成 R-3 数据主体知情权全端闭环。部署需 `prisma migrate deploy` 建表。（对应 R-3，Web+小程序双端已缓解）
 - ✅ **敏感个人信息单独同意交互**（**Web + 小程序双端已落地**）：首次录入/保存健康数据前弹出**独立**于隐私政策的“敏感个人信息处理单独同意”弹窗（Web `HealthDataConsentModal` 需主动勾选后“同意并继续”；小程序 `utils/consent.ts` 基于 `uni.showModal` 主动点“同意并继续”），拒绝则中止录入，同意以 localStorage 标记一次性留存。（对应 R-1，已缓解；服务端健康数据写入另有 AuditLog 留痕）
 - ✅ **AI 误差提示**（**Web + 小程序双端已落地**）：上传识别结果确认页（Web `web/src/pages/Upload.tsx`、小程序 `miniprogram/src/pages/upload/index.vue`）在保存前强制展示“AI 识别结果仅供参考，不构成医学诊断，请逐项核对后再保存”警示。（对应 R-4，已缓解）
 - ✅ **家庭成员录入授权二次确认**（**Web + 小程序双端已落地**）：新增家庭成员表单（Web `web/src/pages/Profile.tsx`、小程序 `miniprogram/src/pages/family/index.vue`）增加授权声明提示 + 必勾选项“我确认已获得该成员本人（或其监护人）的授权”，未勾选阻断提交；Web 端编辑已有成员不重复要求。（对应 R-5，已缓解）
@@ -70,7 +70,7 @@
 |------|----------|------------------|--------------------|
 | R-1 单独同意 | 隐私政策告知（初稿）；**Web+小程序均已落地首次录入前独立同意弹窗** | 低 | （已缓解）待隐私政策终稿由律师复核文案 |
 | R-2 明文存储 | HTTPS 传输、bcrypt 仅护密码；**AES-256-GCM 加密基座 + User 过敏史/慢性病史（service 层）+ 报告摘要/诊断文本/用药备注（集中式 Prisma 中间件）全量透明加解密 + 存量回填脚本** | **低** | （已缓解）部署时注入 `DATA_ENCRYPTION_KEY` 并执行 `db:backfill-encrypt` 回填存量明文 |
-| R-3 无审计日志 | **已落地数据访问审计（6.1.7）+ 登录成功/失败留痕 + 本人只读审计查询端点 + Web「访问记录」页端到端查看/筛选本人数据访问记录** | **低** | （已缓解）跨用户全量管理端查询待 RBAC/管理员角色落地后开放；小程序端访问记录页待补 |
+| R-3 无审计日志 | **已落地数据访问审计（6.1.7）+ 登录成功/失败留痕 + 本人只读审计查询端点 + Web+小程序「访问记录」页端到端查看/筛选本人数据访问记录（双端闭环）** | **低** | （已缓解）跨用户全量管理端查询待 RBAC/管理员角色落地后开放 |
 | R-4 AI 误差 | 用户确认后保存、协议免责；**Web+小程序结果页均已强制“仅供参考”前置提示** | 低 | （已缓解） |
 | R-5 他人数据授权 | 协议含授权保证；**Web+小程序录入页均已二次确认授权声明（必勾）** | 低 | （已缓解） |
 | R-6 分享泄露 | 只读 token、限流；**已实现 `ShareLink` 记录表：可配置有效期（1~90 天）+ 即时撤销（旧 token 立即失效）+ 访问计数；Web+小程序「我的分享」页均可查看/撤销（双端闭环）** | **低** | （已缓解）跨用户全量分享管理待 RBAC |

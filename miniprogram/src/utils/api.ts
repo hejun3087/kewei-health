@@ -99,3 +99,10 @@ export const shareApi = {
     http.get<any>('/share/my').then((res: any) => (Array.isArray(res) ? res : [])),
   revoke: (shareId: string) => http.del<any>(`/share/${shareId}`),
 };
+
+// ==================== 访问记录（PIA R-3 数据主体知情权） ====================
+// GET /audit/me 返回分页对象 { total, items, page, pageSize }；query 支持 action/resourceType/success/from/to/page/pageSize。
+export const auditApi = {
+  listMine: (params?: { action?: string; resourceType?: string; success?: string; from?: string; to?: string; page?: number; pageSize?: number }) =>
+    http.get<any>('/audit/me', params),
+};

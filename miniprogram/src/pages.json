@@ -61,6 +61,13 @@
       }
     },
     {
+      "path": "pages/audit/list",
+      "style": {
+        "navigationBarTitleText": "访问记录",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/login/index",
       "style": {
         "navigationBarTitleText": "登录"
