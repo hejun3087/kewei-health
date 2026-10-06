@@ -9,15 +9,18 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../rbac/roles.guard';
 import { StepUpGuard } from '../rbac/stepup.guard';
 import { Permissions, RequireStepUp, Roles } from '../rbac/roles.decorator';
 import { Permission, Role } from '../rbac/permissions';
 import { AuditService } from '../audit/audit.service';
+import { AuditExportService } from '../audit/audit-export.service';
 import { AdminService } from './admin.service';
 
 /**
@@ -29,6 +32,7 @@ import { AdminService } from './admin.service';
  *
  * P0：`GET /admin/audit` 跨用户全量审计查询（解锁 PIA R-3）。
  * P1：跨用户用户管理（列表/详情/启停）、角色授予/撤销、分享列表/强制撤销（解锁 PIA R-6）。
+ * P3：`GET /admin/audit/export` 审计日志导出 xlsx/csv（audit:export，导出行为自身落审计）。
  *
  * 每个端点用 `@Roles`（角色白名单）+ `@Permissions`（矩阵权限项）双重声明，
  * 危险写操作（启停/授撤角色/强撤分享）仅 SUPER_ADMIN；Service 层统一落 resourceType=ADMIN 审计。
@@ -40,6 +44,7 @@ import { AdminService } from './admin.service';
 export class AdminController {
   constructor(
     private readonly auditService: AuditService,
+    private readonly auditExportService: AuditExportService,
     private readonly adminService: AdminService,
   ) {}
 
@@ -51,6 +56,62 @@ export class AdminController {
   @ApiOperation({ summary: '跨用户全量审计日志查询（仅 SUPER_ADMIN/AUDITOR）' })
   getAllAudit(@Query() query: any) {
     return this.auditService.queryAll(query ?? {});
+  }
+
+  /**
+   * 审计日志导出（RBAC P3）：能查（audit:read_all）不等于能整包拉走（audit:export），
+   * 权限项独立且仅 SUPER_ADMIN/AUDITOR；只读动作，不需要 step-up。
+   * 导出行为自身落一条 action=AUDIT_EXPORT 审计（meta 记 actorRoles/filters/count/truncated），
+   * 满足等保三级「谁拉走了全量审计」可追溯；单次行数上限与截断标记由 AuditExportService 保证。
+   */
+  @Get('audit/export')
+  @Roles(Role.SUPER_ADMIN, Role.AUDITOR)
+  @Permissions(Permission.AUDIT_EXPORT)
+  @ApiOperation({ summary: '导出审计日志 xlsx/csv（仅 SUPER_ADMIN/AUDITOR，导出行为留痕）' })
+  @ApiQuery({ name: 'format', required: false, description: 'xlsx（默认）| csv' })
+  async exportAudit(@Req() req: any, @Res() res: Response, @Query() query: any) {
+    const { buffer, filename, count, total, truncated, format } = await this.auditExportService.export(
+      query ?? {},
+      query?.format,
+    );
+    await this.auditService.record({
+      userId: req?.user?.userId ?? null,
+      action: 'AUDIT_EXPORT',
+      resourceType: 'ADMIN',
+      ip: req?.ip ?? null,
+      userAgent: req?.headers?.['user-agent'] ?? null,
+      success: true,
+      meta: {
+        actorRoles: req?.user?.roles ?? [],
+        format,
+        count,
+        total,
+        truncated,
+        filters: this.pickFilters(query ?? {}),
+      },
+    });
+    res.set({
+      'Content-Type':
+        format === 'csv'
+          ? 'text/csv; charset=utf-8'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+      'X-Audit-Export-Truncated': String(truncated),
+      'Access-Control-Expose-Headers': 'Content-Disposition, X-Audit-Export-Truncated',
+      'Cache-Control': 'no-store',
+    });
+    res.end(buffer);
+  }
+
+  /** 导出审计留痕用的筛选快照：白名单 + 单值限长 200，防 meta 无限膨胀 */
+  private pickFilters(q: any): Record<string, string> {
+    const allow = ['userId', 'action', 'resourceType', 'success', 'from', 'to', 'format'];
+    const out: Record<string, string> = {};
+    for (const k of allow) {
+      if (typeof q?.[k] === 'string' && q[k]) out[k] = q[k].slice(0, 200);
+    }
+    return out;
   }
 
   // ==================== 用户管理（P1） ====================

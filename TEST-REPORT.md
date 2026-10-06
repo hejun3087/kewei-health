@@ -7,10 +7,10 @@
 
 | 层级 | 框架 | 套件 / 文件 | 用例数 | 结果 |
 |------|------|-----------|--------|------|
-| 后端单元测试（Service/Controller/拦截器/加密基座+中间件/RBAC Guard） | Jest + ts-jest | 26 | 249 | ✅ 全过 |
-| 后端接口集成测试（HTTP 层） | supertest + @nestjs/testing | 13 | 75 | ✅ 全过 |
-| 前端组件测试 | Vitest + @testing-library/react + jsdom | 15 | 59 | ⚙ CI 验证（本地 Windows OOM，待提交后 CI 实执） |
-| **合计（自动化）** | | **54** | **383** | ✅ **全绿（待 CI）** |
+| 后端单元测试（Service/Controller/拦截器/加密基座+中间件/RBAC Guard） | Jest + ts-jest | 27 | 266 | ✅ 全过 |
+| 后端接口集成测试（HTTP 层） | supertest + @nestjs/testing | 13 | 81 | ✅ 全过 |
+| 前端组件测试 | Vitest + @testing-library/react + jsdom | 15 | 59 | ✅ 全过（本地 npm test -w web 已跑通 59/59） |
+| **合计（自动化）** | | **55** | **406** | ✅ **全绿（待 CI）** |
 | 前后端契约回归 | `server/e2e-test.ps1`（需运行中的服务 + DB） | — | 报告/诊断/用药/会员主流程 | ⏸ 需部署环境手动执行 |
 | 微信小程序 | 无自动化测试脚本 | 0 | 0 | — 仅 `build:mp-weixin` 编译校验 |
 
@@ -20,6 +20,7 @@
 - 更新（RBAC P0 批次 2026-10-05）：后端新增 `rbac/roles.guard.spec.ts`（9）+ `admin/admin.controller.spec.ts`（8，守卫链集成），并扩 `auth.service`（+4）/`audit.service.queryAll`（+5）/`jwt.strategy`（+2），本地全量 **37 套件/285 用例全绿**；前端新增 `RequireRole`（5）+ `admin/AllAudit`（3）、扩 `AuthContext`（+2）。
 - 更新（RBAC P1 批次 2026-10-05）：后端 `admin.controller.spec` 8→16（P1 六新端点元数据/角色边界矩阵：授撤角色与强制撤销/禁用仅 SUPER_ADMIN，OPERATOR/AUDITOR 越权 403）+ 新增 `admin.service.spec`（8：响应脱敏/状态机校验/角色软撤销/分享 active 过滤/幂等撤销/审计留痕），本地全量 **38 套件/301 用例全绿**，`nest build` 绿；前端新增 `admin/AllShares`（5）+ `admin/Users`（6）页单测（角色显隐/脱敏渲染/空态/按钮可见性），`npm run build -w web` 绿；vitest 全量本地仍受 Windows 环境阻断，**已经 CI（ubuntu）复验全绿：14 文件/54 用例（run 37323084313；首跑因 antd 两字中文按钮自动插空格导致文本断言失败 4 例，已改用弹性正则修复）**。
 - 更新（RBAC P2 批次 2026-10-05）：后端新增 `rbac/stepup.guard.spec.ts`（7：opt-in 短路 / header 缺失 / 验签失败 / typ 非 stepup / sub 不匹配 / 全通 / 未登录兼容）+ `auth.service.spec` 扩 stepUp 分支（6：密码对/错/无密码账号/未登录/DELETED/DISABLED）+ `auth.controller.spec` 扩 stepup endpoint（2：成功落 STEPUP/success 审计 + 失败落 failure+status） + `jwt.strategy.spec` 拒 stepup token 冒充登录凭证（1）+ `admin.controller.spec` 给 4 个危险端点补 stepup 成功与失败用例（新增 7 + 元数据 stepup: true 断言）+ `audit.service.spec` queryAll action 逗号多值支持（2）。本地全量 **39 套件/324 用例全绿**，`nest build` 绿。前端新增 `utils/stepup.tsx`（密码弹窗 + sessionStorage 5min 缓存）+ `pages/admin/PermissionHistory.tsx`（5 用例单测）及测试，`npm run build -w web` 绿；vitest 本地仍受 Windows OOM 阻断，待 CI 验证。
+- 更新（RBAC P3 首项 2026-10-06）：后端 `audit.service.ts` 抽 `buildAdminWhere`（分页查询与导出共用，防页面/导出语义漂移）+ `queryForExport`（`take=cap+1` 探测截断，`EXPORT_MAX_ROWS=10000` 硬上限）；新建 `audit-export.service.ts`（xlsx 双 sheet：概览自证页 + 审计日志；csv 带 UTF-8 BOM + 公式注入防护 + 引号翻倍）+ 单测 `audit-export.service.spec`（11：PK 魔数/双 sheet/文件名/BOM/标签映射/列顺序/转义/公式防护/免登录占位/非法 format/截断透传）；`audit.service.spec` 扩 `queryForExport`（6）；`admin.controller.spec` 扩导出端点（6：SUPER_ADMIN 下载头/csv 透传/导出留痕/OPERATOR 403/SUPPORT 403/未登录 401）。本地全量 **40 套件/347 用例全绿**，`nest build` 绿；前端 `AllAudit.tsx` 加导出 Excel/CSV 按钮（blob 下载 + 截断警告），vitest 本地 **15 文件/59 用例全绿**，`web build` 绿。
 
 ## 二、后端覆盖率（Jest --coverage，门禁 Stmts/Lines ≥ 80%）
 

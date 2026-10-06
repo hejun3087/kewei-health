@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Table, Tag, Select, Space, Typography, Input, Button, Empty } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { Table, Tag, Select, Space, Typography, Input, Button, Empty, message } from 'antd';
+import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from '../../utils/api';
 import dayjs from 'dayjs';
 
@@ -15,10 +15,16 @@ const actionLabel: Record<string, string> = {
   DELETE: '删除',
   EXPORT: '导出',
   LOGIN: '登录',
+  STEPUP: '二次验证',
   SHARE_CREATE: '创建分享',
   SHARE_LIST: '查看分享列表',
   SHARE_REVOKE: '撤销分享',
+  SHARE_REVOKE_ANY: '强制撤销分享',
   SHARE_VIEW: '分享访问',
+  ROLE_GRANT: '授予角色',
+  ROLE_REVOKE: '撤销角色',
+  USER_DISABLE: '账号启停',
+  AUDIT_EXPORT: '导出审计日志',
 };
 
 const resourceLabel: Record<string, string> = {
@@ -30,6 +36,7 @@ const resourceLabel: Record<string, string> = {
   USER: '个人档案',
   HEALTH_DATA: '健康数据',
   AUTH: '登录认证',
+  ADMIN: '管理操作',
 };
 
 const actionOptions = Object.keys(actionLabel).map((k) => ({ value: k, label: actionLabel[k] }));
@@ -56,6 +63,7 @@ export default function AllAuditPage() {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState<'xlsx' | 'csv' | null>(null);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -66,13 +74,19 @@ export default function AllAuditPage() {
   const [userIdInput, setUserIdInput] = useState<string>('');
   const [userId, setUserId] = useState<string | undefined>();
 
-  const load = () => {
-    setLoading(true);
-    const params: Record<string, any> = { page, pageSize };
+  /** 当前筛选条件：列表与导出共用，保证「页面上看到的」=「导出的」 */
+  const currentFilters = (): Record<string, any> => {
+    const params: Record<string, any> = {};
     if (action) params.action = action;
     if (resourceType) params.resourceType = resourceType;
     if (success) params.success = success;
     if (userId) params.userId = userId;
+    return params;
+  };
+
+  const load = () => {
+    setLoading(true);
+    const params: Record<string, any> = { page, pageSize, ...currentFilters() };
     api
       .get('/admin/audit', { params })
       .then((res) => {
@@ -91,6 +105,37 @@ export default function AllAuditPage() {
     const v = userIdInput.trim();
     setUserId(v ? v : undefined);
     setPage(1);
+  };
+
+  // 审计导出（RBAC P3，解锁 PIA R-3「审计记录可导出」尾项）：blob 下载，权限不足由 api 拦截器提示
+  const handleExport = async (format: 'xlsx' | 'csv') => {
+    setExporting(format);
+    try {
+      const res = await api.get('/admin/audit/export', {
+        params: { ...currentFilters(), format },
+        responseType: 'blob',
+      });
+      const cd = (res.headers['content-disposition'] as string) || '';
+      const match = /filename="?([^";]+)"?/i.exec(cd);
+      const filename = match ? match[1] : `kewei-audit-export.${format}`;
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      if (res.headers['x-audit-export-truncated'] === 'true') {
+        message.warning('数据量超出上限，仅导出最近 10000 条，请缩小筛选范围后重导');
+      } else {
+        message.success('审计日志已导出');
+      }
+    } catch {
+      // 权限不足/网络错误已由 api 响应拦截器统一提示
+    } finally {
+      setExporting(null);
+    }
   };
 
   const columns = [
@@ -159,9 +204,28 @@ export default function AllAuditPage() {
             跨用户查看平台内的健康数据访问、登录尝试与分享操作。仅 SUPER_ADMIN / AUDITOR 角色可访问（对应 PIA R-3 跨用户管理端）。
           </Typography.Text>
         </div>
-        <Button icon={<ReloadOutlined />} onClick={load}>
-          刷新
-        </Button>
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={load}>
+            刷新
+          </Button>
+          <Space.Compact>
+            <Button
+              icon={<DownloadOutlined />}
+              loading={exporting === 'xlsx'}
+              disabled={exporting !== null && exporting !== 'xlsx'}
+              onClick={() => handleExport('xlsx')}
+            >
+              导出 Excel
+            </Button>
+            <Button
+              loading={exporting === 'csv'}
+              disabled={exporting !== null && exporting !== 'csv'}
+              onClick={() => handleExport('csv')}
+            >
+              导出 CSV
+            </Button>
+          </Space.Compact>
+        </Space>
       </div>
 
       <Space wrap style={{ marginBottom: 16 }}>

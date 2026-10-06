@@ -142,6 +142,9 @@ export class AuditService {
    *
    * RBAC P2 扩展：`action` 支持逗号分隔多值（如 `ROLE_GRANT,ROLE_REVOKE`）以支撑
    * “权限变更履历”页面一次拉取同资源类型的多个动作；单值行为向后兼容。
+   *
+   * RBAC P3：条件构造抽取为 buildAdminWhere，分页查询与导出（queryForExport）共用，
+   * 保证「管理端列表看到的」与「导出的」筛选语义完全一致。
    */
   async queryAll(
     query: {
@@ -155,6 +158,38 @@ export class AuditService {
       pageSize?: number | string;
     } = {},
   ) {
+    const where = this.buildAdminWhere(query);
+
+    const page = Math.max(1, parseInt(String(query.page), 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(String(query.pageSize), 10) || 20));
+
+    const [total, items] = await Promise.all([
+      this.prisma.auditLog.count({ where }),
+      this.prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    return { total, items, page, pageSize };
+  }
+
+  /**
+   * 管理端（跨用户）审计查询条件构造：queryAll 与 queryForExport 共用（RBAC P3）。
+   * 多值 action 支持逗号分隔（P2 行为），其余过滤与 queryOwn 同构（不强制 userId）。
+   */
+  private buildAdminWhere(
+    query: {
+      userId?: string;
+      action?: string;
+      resourceType?: string;
+      success?: string | boolean;
+      from?: string;
+      to?: string;
+    } = {},
+  ): any {
     const where: any = {};
     if (query.userId) where.userId = String(query.userId);
     if (query.action) {
@@ -181,20 +216,37 @@ export class AuditService {
       }
       if (Object.keys(range).length) where.createdAt = range;
     }
+    return where;
+  }
 
-    const page = Math.max(1, parseInt(String(query.page), 10) || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(String(query.pageSize), 10) || 20));
+  /** 导出单次行数硬上限（防整表导出打爆 Node 堆）；超限由渲染层显式标注截断，绝不静默丢弃 */
+  static readonly EXPORT_MAX_ROWS = 10000;
 
-    const [total, items] = await Promise.all([
+  /**
+   * 审计导出取数（RBAC P3）：与 queryAll 共用 buildAdminWhere，但不分页。
+   * 取 cap+1 条探测是否超限，返回 { total, rows, truncated, cap } 由渲染层决定如何标注。
+   */
+  async queryForExport(
+    query: {
+      userId?: string;
+      action?: string;
+      resourceType?: string;
+      success?: string | boolean;
+      from?: string;
+      to?: string;
+    } = {},
+    maxRowsInput?: number | string,
+  ) {
+    const cap = Math.min(
+      AuditService.EXPORT_MAX_ROWS,
+      Math.max(1, parseInt(String(maxRowsInput ?? ''), 10) || AuditService.EXPORT_MAX_ROWS),
+    );
+    const where = this.buildAdminWhere(query);
+    const [total, rows] = await Promise.all([
       this.prisma.auditLog.count({ where }),
-      this.prisma.auditLog.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
+      this.prisma.auditLog.findMany({ where, orderBy: { createdAt: 'desc' }, take: cap + 1 }),
     ]);
-
-    return { total, items, page, pageSize };
+    const truncated = rows.length > cap;
+    return { total, rows: truncated ? rows.slice(0, cap) : rows, truncated, cap };
   }
 }

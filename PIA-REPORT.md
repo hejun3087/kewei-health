@@ -70,7 +70,7 @@
 |------|----------|------------------|--------------------|
 | R-1 单独同意 | 隐私政策告知（初稿）；**Web+小程序均已落地首次录入前独立同意弹窗** | 低 | （已缓解）待隐私政策终稿由律师复核文案 |
 | R-2 明文存储 | HTTPS 传输、bcrypt 仅护密码；**AES-256-GCM 加密基座 + User 过敏史/慢性病史（service 层）+ 报告摘要/诊断文本/用药备注（集中式 Prisma 中间件）全量透明加解密 + 存量回填脚本** | **低** | （已缓解）部署时注入 `DATA_ENCRYPTION_KEY` 并执行 `db:backfill-encrypt` 回填存量明文 |
-| R-3 无审计日志 | **已落地数据访问审计（6.1.7）+ 登录成功/失败留痕 + 本人只读审计查询端点 + Web+小程序「访问记录」页端到端查看/筛选本人数据访问记录（双端闭环）+ RBAC P0 已落地：`GET /admin/audit` 跨用户全量审计查询（SUPER_ADMIN/AUDITOR + audit:read_all，Web 管理端审计页）+ RBAC P2 已落地：等保三级“权限变更履历”——Web `/admin/permission-history` 预置 `resourceType=ADMIN&action=ROLE_GRANT,ROLE_REVOKE` 展示角色授/撤事件（含操作者角色快照/目标用户/理由），audit.service.queryAll 支持 action 逗号多值。** | **低** | （已缓解）部署时需执行 `prisma migrate deploy`（UserRole 表）并按 `docs/rbac-design.md` §十二跑 seed 引导首个 SUPER_ADMIN，否则管理端无人可访问 |
+| R-3 无审计日志 | **已落地数据访问审计（6.1.7）+ 登录成功/失败留痕 + 本人只读审计查询端点 + Web+小程序「访问记录」页端到端查看/筛选本人数据访问记录（双端闭环）+ RBAC P0 已落地：`GET /admin/audit` 跨用户全量审计查询（SUPER_ADMIN/AUDITOR + audit:read_all，Web 管理端审计页）+ RBAC P2 已落地：等保三级“权限变更履历”——Web `/admin/permission-history` 预置 `resourceType=ADMIN&action=ROLE_GRANT,ROLE_REVOKE` 展示角色授/撤事件（含操作者角色快照/目标用户/理由），audit.service.queryAll 支持 action 逗号多值 + RBAC P3 已落地：`GET /admin/audit/export` 审计日志导出 xlsx/csv（audit:export 权限项独立于 read_all，导出行为自身落 AUDIT_EXPORT 审计、单次 10000 行硬上限 + 截断三重标注、CSV 公式注入防护，解锁 R-3「审计记录可导出」尾项）。** | **低** | （已缓解）部署时需执行 `prisma migrate deploy`（UserRole 表）并按 `docs/rbac-design.md` §十二跑 seed 引导首个 SUPER_ADMIN，否则管理端无人可访问 |
 | R-4 AI 误差 | 用户确认后保存、协议免责；**Web+小程序结果页均已强制“仅供参考”前置提示** | 低 | （已缓解） |
 | R-5 他人数据授权 | 协议含授权保证；**Web+小程序录入页均已二次确认授权声明（必勾）** | 低 | （已缓解） |
 | R-6 分享泄露 | 只读 token、限流；**已实现 `ShareLink` 记录表：可配置有效期（1~90 天）+ 即时撤销（旧 token 立即失效）+ 访问计数；Web+小程序「我的分享」页均可查看/撤销（双端闭环）+ RBAC P1 已落地：`GET /admin/shares` 跟用户分享查看（share:read_all，脱敏）+ `DELETE /admin/shares/:id` 应急强制撤销（share:revoke_all，仅 SUPER_ADMIN，理由必填入审计 resourceType=ADMIN），Web 管理端分享管理页 + RBAC P2 已落地：强撤/启停/角授撤均需 step-up 二次验证（`POST /auth/stepup` 签发 5min TTL `typ:stepup` 短 token，`x-stepup-token` header 传递，StepUpGuard 断绝登录 token 冒充）** | **低** | （已缓解）部署前提同 R-3：`prisma migrate deploy` + seed 引导首个 SUPER_ADMIN，否则管理端无人可访问 |
@@ -83,7 +83,7 @@
 - **P0（★ 阻断上线）**
   1. **敏感个人信息单独同意**：✅ **已实现（Web+小程序双端）**——首次录入/保存健康数据前独立弹窗取得单独同意并留痕（对应 R-1；隐私政策终稿 6.1.2 待律师复核文案）。
   2. **健康数据静态加密**：✅ **已实现（6.1.6）**——加密基座（AES-256-GCM + `DATA_ENCRYPTION_KEY` env fail-fast + 版本化 token + 存量明文兼容）；`User` 过敏史/慢性病史（service 层）+ `Report.summary`/`Diagnosis` 文本/`Medication.notes`（集中式 Prisma 中间件）**全量透明加解密，已通过单测**；存量明文回填脚本 `db:backfill-encrypt` 就绪（部署时执行）（对应 R-2）。
-  3. **数据访问审计日志**：✅ **已实现（6.1.7）**——`AuditLog` 表 + 全局拦截器，关键健康数据读写已可追溯留痕。
+  3. **数据访问审计日志**：✅ **已实现（6.1.7）**——`AuditLog` 表 + 全局拦截器，关键健康数据读写已可追溯留痕；管理端跨用户查询（RBAC P0）+ 权限变更履历（RBAC P2）+ **审计导出 xlsx/csv 且导出行为自身留痕（RBAC P3）**，R-3 尾项全部关闭。
 - **P1**
   4. ✅ AI 结果页“仅供参考、请核对”强制前置提示（R-4，**Web + 小程序双端已实现**）。
   5. ✅ 录入家庭成员时的授权声明二次确认（R-5，**Web + 小程序双端已实现**）。

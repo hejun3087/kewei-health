@@ -253,7 +253,7 @@ async queryAll(@Query() q: AuditQueryDto) { ... }
 | GET | `/admin/users/:id/health-meta` | `health:read_meta` | 只读元数据（医院/日期/类型/数量），不解密 |
 | GET | `/admin/users/:id/health-full` | `health:read_full` | ⚠️ 需 body.reason 非空 + header.x-stepup-token |
 | GET | `/admin/audit` | `audit:read_all` | 跨用户审计查询（解锁 PIA R-3） |
-| GET | `/admin/audit/export` | `audit:export` | CSV/PDF（解锁 PIA R-3 尾项） |
+| GET | `/admin/audit/export` | `audit:export` | 导出 xlsx/csv（✅ 已于 2026-10-06 落地：单次 10000 行硬上限+截断标注、导出行为自身落审计，解锁 PIA R-3 尾项） |
 | GET | `/admin/shares` | `share:read_all` | 跨用户分享列表（解锁 PIA R-6） |
 | DELETE | `/admin/shares/:id` | `share:revoke_any` | 强制撤销（应急不良内容） |
 | GET | `/admin/subscriptions` | `subscription:read` | 订阅/订单列表 |
@@ -338,7 +338,7 @@ async queryAll(@Query() q: AuditQueryDto) { ... }
 | **P0** | Schema + 迁移 + seed；`RolesGuard` + `@Permissions`/`@Roles`；JWT payload 扩展；首个端到端解锁点：`GET /admin/audit`（对应 PIA R-3）+ 单测/e2e；Web `AllAudit.tsx` + 侧边栏动态显示 + 403 页 | 3-4 天 | 本方案 review 通过（✅ 已于 2026-10-05 落地） |
 | **P1** | 用户管理端点（`/admin/users*`）+ 分享管理端点（`/admin/shares*`，解锁 PIA R-6 尾项）+ 各自 Web UI | 3-4 天 | P0（✅ 已于 2026-10-05 落地） |
 | **P2** | `role:assign` + `x-stepup-token` 二次验证 + 权限变更履历页 | 3-5 天 | P1（✅ 已于 2026-10-05 落地：step-up 短 token + `StepUpGuard` 挂 4 危险端点 + `/admin/permission-history` 履历页） |
-| **P3** | `subscription:read` / `refund`（对接支付网关退款）/ `health:read_full`（律师 sign-off 后再做）/ `system:config` | 待定 | 外部条件（支付网关能力、隐私政策终稿） |
+| **P3** | `subscription:read` / `refund`（对接支付网关退款）/ `health:read_full`（律师 sign-off 后再做）/ `system:config` | 待定 | 外部条件（支付网关能力、隐私政策终稿）（首项已落地 2026-10-06：`audit:export` 审计导出 xlsx/csv，余 refund / health:read_full / system:config 待外部条件） |
 
 **每阶段验收**：本地全量 jest + nest build + web vitest + web build + 小程序 build（若涉及）+ CI 绿灯；PIA/PROGRESS 文档同步。
 

@@ -5,6 +5,7 @@ import * as request from 'supertest';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AuditService } from '../audit/audit.service';
+import { AuditExportService } from '../audit/audit-export.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RbacModule } from '../rbac/rbac.module';
 import { PERMISSIONS_KEY, ROLES_KEY, STEPUP_KEY } from '../rbac/roles.decorator';
@@ -17,9 +18,10 @@ import { resolveJwtSecret } from '../common/jwt-config';
  * - AuditService/AdminService 提供 spy，返回固定对象，仅验证授权链与路由映射，不测 Service 内部逻辑（见 admin.service.spec）；
  * - 覆盖：各端点角色/权限白名单命中与未命中、SUPER_ADMIN 专属写操作、跨用户读、未登录 401。
  */
-describe('AdminController 集成（守卫链 + P0/P1 端点）', () => {
+describe('AdminController 集成（守卫链 + P0/P1/P3 端点）', () => {
   let app: INestApplication;
-  let auditService: { queryAll: jest.Mock };
+  let auditService: { queryAll: jest.Mock; record: jest.Mock };
+  let auditExportService: { export: jest.Mock };
   let adminService: {
     listUsers: jest.Mock;
     getUser: jest.Mock;
@@ -44,7 +46,20 @@ describe('AdminController 集成（守卫链 + P0/P1 端点）', () => {
 
   beforeEach(async () => {
     injectedUser = null;
-    auditService = { queryAll: jest.fn().mockResolvedValue({ total: 0, items: [], page: 1, pageSize: 20 }) };
+    auditService = {
+      queryAll: jest.fn().mockResolvedValue({ total: 0, items: [], page: 1, pageSize: 20 }),
+      record: jest.fn().mockResolvedValue(undefined),
+    };
+    auditExportService = {
+      export: jest.fn().mockResolvedValue({
+        buffer: Buffer.from('PK-fake-xlsx-bytes'),
+        filename: 'kewei-audit-export-20261006-083000.xlsx',
+        count: 3,
+        total: 3,
+        truncated: false,
+        format: 'xlsx',
+      }),
+    };
     adminService = {
       listUsers: jest.fn().mockResolvedValue({ total: 0, items: [], page: 1, pageSize: 20 }),
       getUser: jest.fn().mockResolvedValue({ id: 'u1', roles: [] }),
@@ -60,6 +75,7 @@ describe('AdminController 集成（守卫链 + P0/P1 端点）', () => {
       controllers: [AdminController],
       providers: [
         { provide: AuditService, useValue: auditService },
+        { provide: AuditExportService, useValue: auditExportService },
         { provide: AdminService, useValue: adminService },
       ],
     })
@@ -91,6 +107,12 @@ describe('AdminController 集成（守卫链 + P0/P1 端点）', () => {
     expect(meta(AdminController.prototype.getAllAudit)).toEqual({
       roles: [Role.SUPER_ADMIN, Role.AUDITOR],
       perms: [Permission.AUDIT_READ_ALL],
+      stepup: false,
+    });
+    // RBAC P3：审计导出权限项独立于查询（能查≠能拉走），只读动作无需 step-up
+    expect(meta(AdminController.prototype.exportAudit)).toEqual({
+      roles: [Role.SUPER_ADMIN, Role.AUDITOR],
+      perms: [Permission.AUDIT_EXPORT],
       stepup: false,
     });
     expect(meta(AdminController.prototype.listUsers).roles).toEqual([Role.SUPER_ADMIN, Role.OPERATOR, Role.AUDITOR]);
@@ -128,6 +150,79 @@ describe('AdminController 集成（守卫链 + P0/P1 端点）', () => {
   it('GET /admin/audit：SUPPORT → 403', async () => {
     injectedUser = { userId: 'sup1', roles: [Role.SUPPORT] };
     await request(app.getHttpServer()).get('/admin/audit').expect(403);
+  });
+
+  // -------- P3 审计导出（audit:export，解锁 R-3「审计记录可导出」尾项） --------
+
+  it('GET /admin/audit/export：SUPER_ADMIN → 200 + 下载头（xlsx）', async () => {
+    injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
+    const res = await request(app.getHttpServer())
+      .get('/admin/audit/export')
+      .query({ resourceType: 'ADMIN', action: 'ROLE_GRANT,ROLE_REVOKE' })
+      .expect(200);
+    expect(res.headers['content-type']).toContain('spreadsheetml');
+    expect(res.headers['content-disposition']).toContain('attachment; filename="kewei-audit-export-');
+    expect(res.headers['x-audit-export-truncated']).toBe('false');
+    expect(auditExportService.export).toHaveBeenCalledWith(
+      expect.objectContaining({ resourceType: 'ADMIN', action: 'ROLE_GRANT,ROLE_REVOKE' }),
+      undefined,
+    );
+  });
+
+  it('GET /admin/audit/export：format=csv 透传给 Service，响应为 text/csv', async () => {
+    injectedUser = { userId: 'aud1', roles: [Role.AUDITOR] };
+    auditExportService.export.mockResolvedValueOnce({
+      buffer: Buffer.from('\ufeff"时间(UTC)"'),
+      filename: 'kewei-audit-export-20261006-083000.csv',
+      count: 1,
+      total: 1,
+      truncated: false,
+      format: 'csv',
+    });
+    const res = await request(app.getHttpServer()).get('/admin/audit/export').query({ format: 'csv' }).expect(200);
+    expect(auditExportService.export).toHaveBeenCalledWith(expect.objectContaining({ format: 'csv' }), 'csv');
+    expect(res.headers['content-type']).toContain('text/csv');
+  });
+
+  it('GET /admin/audit/export：导出动作本身落审计（谁用什么条件拉走全量审计，等保可追溯）', async () => {
+    injectedUser = { userId: 'admin1', phone: '138****0000', roles: [Role.SUPER_ADMIN] };
+    await request(app.getHttpServer()).get('/admin/audit/export').query({ action: 'EXPORT', page: 2 }).expect(200);
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin1',
+        action: 'AUDIT_EXPORT',
+        resourceType: 'ADMIN',
+        success: true,
+        meta: expect.objectContaining({
+          actorRoles: [Role.SUPER_ADMIN],
+          count: 3,
+          total: 3,
+          truncated: false,
+          format: 'xlsx',
+          filters: { action: 'EXPORT' },
+        }),
+      }),
+    );
+    // 分页/呈现参数不进 filters
+    expect(auditService.record.mock.calls[0][0].meta.filters).not.toHaveProperty('page');
+  });
+
+  it('GET /admin/audit/export：OPERATOR → 403（无 audit:export，不生成文件）', async () => {
+    injectedUser = { userId: 'op1', roles: [Role.OPERATOR] };
+    await request(app.getHttpServer()).get('/admin/audit/export').expect(403);
+    expect(auditExportService.export).not.toHaveBeenCalled();
+    expect(auditService.record).not.toHaveBeenCalled();
+  });
+
+  it('GET /admin/audit/export：SUPPORT → 403', async () => {
+    injectedUser = { userId: 'sup1', roles: [Role.SUPPORT] };
+    await request(app.getHttpServer()).get('/admin/audit/export').expect(403);
+    expect(auditExportService.export).not.toHaveBeenCalled();
+  });
+
+  it('GET /admin/audit/export：未登录 → 401', async () => {
+    await request(app.getHttpServer()).get('/admin/audit/export').expect(401);
+    expect(auditExportService.export).not.toHaveBeenCalled();
   });
 
   // -------- P1 用户读（SUPER_ADMIN/OPERATOR/AUDITOR 均可，SUPPORT 拒） --------

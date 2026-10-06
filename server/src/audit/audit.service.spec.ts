@@ -224,3 +224,58 @@ describe('AuditService.queryAll（RBAC P0 管理端跨用户查询）', () => {
     expect(res).toEqual({ total: 128, items: [{ id: 'a' }, { id: 'b' }], page: 3, pageSize: 20 });
   });
 });
+
+describe('AuditService.queryForExport（RBAC P3 审计导出取数）', () => {
+  let prisma: any;
+  let svc: AuditService;
+
+  beforeEach(() => {
+    prisma = {
+      auditLog: {
+        count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    svc = new AuditService(prisma);
+  });
+
+  it('复用管理端 where 构造器：action 逗号多值 → in（与 queryAll 语义完全一致）', async () => {
+    await svc.queryForExport({ action: 'ROLE_GRANT,ROLE_REVOKE', resourceType: 'ADMIN' });
+    const arg = prisma.auditLog.findMany.mock.calls[0][0];
+    expect(arg.where).toEqual({ action: { in: ['ROLE_GRANT', 'ROLE_REVOKE'] }, resourceType: 'ADMIN' });
+    expect(arg.orderBy).toEqual({ createdAt: 'desc' });
+    expect(arg.skip).toBeUndefined();
+  });
+
+  it('多取 1 条用于探测截断：take = 上限 + 1', async () => {
+    await svc.queryForExport({}, 100);
+    expect(prisma.auditLog.findMany.mock.calls[0][0].take).toBe(101);
+  });
+
+  it('未超限：truncated=false，rows 原样返回', async () => {
+    prisma.auditLog.count.mockResolvedValue(2);
+    prisma.auditLog.findMany.mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
+    const out = await svc.queryForExport({}, 10);
+    expect(out).toMatchObject({ total: 2, truncated: false, cap: 10 });
+    expect(out.rows).toHaveLength(2);
+  });
+
+  it('超限：truncated=true 且截断到上限（不静默丢数据，由上层显式标注）', async () => {
+    prisma.auditLog.count.mockResolvedValue(5);
+    prisma.auditLog.findMany.mockResolvedValue([{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }]);
+    const out = await svc.queryForExport({}, 3);
+    expect(out.truncated).toBe(true);
+    expect(out.rows).toHaveLength(3);
+    expect(out.total).toBe(5);
+  });
+
+  it('请求超过硬上限时收敛到 EXPORT_MAX_ROWS（防整表导出打爆 Node 堆）', async () => {
+    await svc.queryForExport({}, 999999);
+    expect(prisma.auditLog.findMany.mock.calls[0][0].take).toBe(AuditService.EXPORT_MAX_ROWS + 1);
+  });
+
+  it('page/pageSize/format 等呈现参数不进入 where', async () => {
+    await svc.queryForExport({ page: 3, pageSize: 50, format: 'csv' } as any);
+    expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual({});
+  });
+});
