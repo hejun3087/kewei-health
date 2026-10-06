@@ -19,6 +19,9 @@ import { Role } from '../rbac/permissions';
 
 const ROLE_VALUES = Object.values(Role) as string[];
 const SETTABLE_STATUS = ['ACTIVE', 'DISABLED'];
+const VALID_PLANS = ['FREE', 'STANDARD', 'PROFESSIONAL', 'FAMILY'];
+const VALID_SUB_STATUSES = ['ACTIVE', 'EXPIRED', 'CANCELLED', 'PENDING'];
+const VALID_ORDER_STATUSES = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'];
 
 @Injectable()
 export class AdminService {
@@ -269,6 +272,119 @@ export class AdminService {
     });
 
     return { total, items: enriched, page, pageSize };
+  }
+
+  // ==================== 订阅/订单管理（P3，subscription:read / order:read） ====================
+
+  /** 跨用户订阅列表（subscription:read）：可按 plan / status / userId 过滤，分页。 */
+  async listSubscriptions(
+    req: any,
+    query: { plan?: string; status?: string; userId?: string; page?: number | string; pageSize?: number | string } = {},
+  ) {
+    const where: any = {};
+    if (query.plan && VALID_PLANS.includes(String(query.plan))) where.plan = String(query.plan);
+    if (query.status && VALID_SUB_STATUSES.includes(String(query.status))) where.status = String(query.status);
+    if (query.userId) where.userId = String(query.userId);
+
+    const page = Math.max(1, parseInt(String(query.page), 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(String(query.pageSize), 10) || 20));
+
+    const [total, rows] = await Promise.all([
+      this.prisma.subscription.count({ where }),
+      this.prisma.subscription.findMany({
+        where,
+        include: { user: { select: { id: true, phone: true, nickname: true } } },
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    const a = this.actor(req);
+    await this.audit.record({
+      userId: a.userId,
+      action: 'ADMIN_SUBSCRIPTIONS_LIST',
+      resourceType: 'ADMIN',
+      ip: a.ip,
+      userAgent: a.userAgent,
+      meta: { actorRoles: a.roles, filterPlan: query.plan ?? null, filterStatus: query.status ?? null, matched: total },
+    });
+
+    return {
+      total,
+      items: rows.map((r: any) => ({
+        id: r.id,
+        userId: r.userId,
+        user: r.user ? { id: r.user.id, phone: maskIdentity(r.user.phone), nickname: r.user.nickname ?? null } : null,
+        plan: r.plan,
+        status: r.status,
+        startDate: r.startDate,
+        endDate: r.endDate,
+        autoRenew: r.autoRenew,
+        amount: r.amount,
+        paymentMethod: r.paymentMethod,
+        aiUsageCount: r.aiUsageCount,
+        quotaResetAt: r.quotaResetAt,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })),
+      page,
+      pageSize,
+    };
+  }
+
+  /** 跨用户订单列表（order:read）：可按 userId / status / plan 过滤，分页。 */
+  async listOrders(
+    req: any,
+    query: { userId?: string; status?: string; plan?: string; page?: number | string; pageSize?: number | string } = {},
+  ) {
+    const where: any = {};
+    if (query.userId) where.userId = String(query.userId);
+    if (query.status && VALID_ORDER_STATUSES.includes(String(query.status))) where.status = String(query.status);
+    if (query.plan && VALID_PLANS.includes(String(query.plan))) where.plan = String(query.plan);
+
+    const page = Math.max(1, parseInt(String(query.page), 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(String(query.pageSize), 10) || 20));
+
+    const [total, rows] = await Promise.all([
+      this.prisma.paymentOrder.count({ where }),
+      this.prisma.paymentOrder.findMany({
+        where,
+        include: { user: { select: { id: true, phone: true, nickname: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    const a = this.actor(req);
+    await this.audit.record({
+      userId: a.userId,
+      action: 'ADMIN_ORDERS_LIST',
+      resourceType: 'ADMIN',
+      ip: a.ip,
+      userAgent: a.userAgent,
+      meta: { actorRoles: a.roles, filterUserId: query.userId ?? null, filterStatus: query.status ?? null, matched: total },
+    });
+
+    return {
+      total,
+      items: rows.map((r: any) => ({
+        id: r.id,
+        orderId: r.orderId,
+        userId: r.userId,
+        user: r.user ? { id: r.user.id, phone: maskIdentity(r.user.phone), nickname: r.user.nickname ?? null } : null,
+        plan: r.plan,
+        amount: r.amount,
+        paymentMethod: r.paymentMethod,
+        status: r.status,
+        paidAt: r.paidAt,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })),
+      page,
+      pageSize,
+    };
   }
 
   /** 强制撤销任意分享链接（share:revoke_all，应急）：跨 owner，幂等。 */

@@ -175,6 +175,24 @@ export class AdminController {
     return this.adminService.revokeRole(req, id, role, reason);
   }
 
+  // ==================== 订阅/订单管理（P3，subscription:read / order:read） ====================
+
+  @Get('subscriptions')
+  @Roles(Role.SUPER_ADMIN, Role.OPERATOR)
+  @Permissions(Permission.SUBSCRIPTION_READ)
+  @ApiOperation({ summary: '跨用户订阅列表（subscription:read，仅 SUPER_ADMIN/OPERATOR）' })
+  listSubscriptions(@Req() req: any, @Query() query: any) {
+    return this.adminService.listSubscriptions(req, query ?? {});
+  }
+
+  @Get('orders')
+  @Roles(Role.SUPER_ADMIN, Role.OPERATOR)
+  @Permissions(Permission.ORDER_READ)
+  @ApiOperation({ summary: '跨用户订单列表（order:read，仅 SUPER_ADMIN/OPERATOR）' })
+  listOrders(@Req() req: any, @Query() query: any) {
+    return this.adminService.listOrders(req, query ?? {});
+  }
+
   // ==================== 跨用户分享管理（P1，解锁 R-6） ====================
 
   @Get('shares')

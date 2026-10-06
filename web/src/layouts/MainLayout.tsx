@@ -19,6 +19,7 @@ import {
   LinkOutlined,
   SettingOutlined,
   UserSwitchOutlined,
+  AccountBookOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -48,6 +49,7 @@ const ADMIN_SUBMENU = {
     { key: '/admin/users', icon: <TeamOutlined />, label: '用户管理', roles: ['SUPER_ADMIN', 'OPERATOR', 'AUDITOR'] },
     { key: '/admin/shares', icon: <LinkOutlined />, label: '分享管理', roles: ['SUPER_ADMIN', 'OPERATOR', 'AUDITOR'] },
     { key: '/admin/permission-history', icon: <UserSwitchOutlined />, label: '权限变更履历', roles: ['SUPER_ADMIN', 'AUDITOR'] },
+    { key: '/admin/subscriptions', icon: <AccountBookOutlined />, label: '订阅/订单', roles: ['SUPER_ADMIN', 'OPERATOR'] },
   ],
 };
 

@@ -25,6 +25,7 @@ const AllAuditPage = lazy(() => import('./pages/admin/AllAudit'));
 const AdminUsersPage = lazy(() => import('./pages/admin/Users'));
 const AllSharesPage = lazy(() => import('./pages/admin/AllShares'));
 const PermissionHistoryPage = lazy(() => import('./pages/admin/PermissionHistory'));
+const SubscriptionsPage = lazy(() => import('./pages/admin/Subscriptions'));
 const ForbiddenPage = lazy(() => import('./pages/Forbidden'));
 
 function App() {
@@ -92,6 +93,15 @@ function App() {
                 element={
                   <RequireRole roles={['SUPER_ADMIN', 'AUDITOR']}>
                     <PermissionHistoryPage />
+                  </RequireRole>
+                }
+              />
+              {/* RBAC P3：订阅/订单管理（subscription:read / order:read）*/}
+              <Route
+                path="admin/subscriptions"
+                element={
+                  <RequireRole roles={['SUPER_ADMIN', 'OPERATOR']}>
+                    <SubscriptionsPage />
                   </RequireRole>
                 }
               />

@@ -3,10 +3,10 @@ import { AdminService } from './admin.service';
 import { Role } from '../rbac/permissions';
 
 /**
- * AdminService 单测（docs/rbac-design.md P1）：mock Prisma + Audit，聚焦脱敏纪律、
- * 状态/角色校验、软撤销幂等、跨用户分享 active 过滤与强制撤销，及每操作必落 ADMIN 审计。
+ * AdminService 单测（docs/rbac-design.md P1 + P3）：mock Prisma + Audit，聚焦脱敏纪律、
+ * 状态/角色校验、软撤销幂等、跨用户分享 active 过滤与强制撤销、订阅/订单列表与审计留痕。
  */
-describe('AdminService（P1 用户/角色/分享 + 审计）', () => {
+describe('AdminService（P1 用户/角色/分享 + P3 订阅/订单 + 审计）', () => {
   let prisma: any;
   let audit: { record: jest.Mock };
   let svc: AdminService;
@@ -19,6 +19,8 @@ describe('AdminService（P1 用户/角色/分享 + 审计）', () => {
       userRole: { findMany: jest.fn(), updateMany: jest.fn(), create: jest.fn() },
       shareLink: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       report: { findMany: jest.fn() },
+      subscription: { count: jest.fn(), findMany: jest.fn() },
+      paymentOrder: { count: jest.fn(), findMany: jest.fn() },
     };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
     svc = new AdminService(prisma as any, audit as any);
@@ -116,5 +118,60 @@ describe('AdminService（P1 用户/角色/分享 + 审计）', () => {
     expect(out.revoked).toBe(true);
     expect(prisma.shareLink.update).toHaveBeenCalledWith({ where: { id: 's2' }, data: { revokedAt: expect.any(Date) } });
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'SHARE_REVOKE_ANY', meta: expect.objectContaining({ targetUserId: 'u2', reason: '涉不良内容' }) }));
+  });
+
+  // ==================== P3 订阅/订单 ====================
+
+  it('listSubscriptions：过滤合法 plan/status，手机号脱敏 + 分页 + 落 ADMIN_SUBSCRIPTIONS_LIST 审计', async () => {
+    prisma.subscription.count.mockResolvedValue(1);
+    prisma.subscription.findMany.mockResolvedValue([
+      { id: 'sub1', userId: 'u1', plan: 'STANDARD', status: 'ACTIVE', startDate: new Date(), endDate: null,
+        autoRenew: true, amount: 10800, paymentMethod: 'WECHAT', aiUsageCount: 3, quotaResetAt: new Date(),
+        createdAt: new Date(), updatedAt: new Date(),
+        user: { id: 'u1', phone: '13800008888', nickname: '测试' } },
+    ]);
+    const res = await svc.listSubscriptions(req, { plan: 'STANDARD', status: 'ACTIVE', page: 1, pageSize: 20 });
+    expect(res.total).toBe(1);
+    expect(res.items[0].user!.phone).toBe('138****8888');
+    expect(prisma.subscription.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ plan: 'STANDARD', status: 'ACTIVE' }) }),
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'ADMIN_SUBSCRIPTIONS_LIST', resourceType: 'ADMIN',
+        meta: expect.objectContaining({ filterPlan: 'STANDARD', matched: 1 }) }),
+    );
+  });
+
+  it('listSubscriptions：非法 plan 被忽略，不加入 where', async () => {
+    prisma.subscription.count.mockResolvedValue(0);
+    prisma.subscription.findMany.mockResolvedValue([]);
+    await svc.listSubscriptions(req, { plan: 'INVALID' });
+    const call = prisma.subscription.findMany.mock.calls[0][0];
+    expect(call.where.plan).toBeUndefined();
+  });
+
+  it('listOrders：过滤合法 status，金额保留分 + 落 ADMIN_ORDERS_LIST 审计', async () => {
+    prisma.paymentOrder.count.mockResolvedValue(1);
+    prisma.paymentOrder.findMany.mockResolvedValue([
+      { id: 'o1', orderId: 'KW123', userId: 'u1', plan: 'PROFESSIONAL', amount: 22800,
+        paymentMethod: 'WECHAT', status: 'PAID', paidAt: new Date(), createdAt: new Date(), updatedAt: new Date(),
+        user: { id: 'u1', phone: '13900007777', nickname: '李四' } },
+    ]);
+    const res = await svc.listOrders(req, { status: 'PAID', page: 1, pageSize: 20 });
+    expect(res.total).toBe(1);
+    expect(res.items[0].amount).toBe(22800);
+    expect(res.items[0].user!.phone).toBe('139****7777');
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'ADMIN_ORDERS_LIST', resourceType: 'ADMIN',
+        meta: expect.objectContaining({ filterStatus: 'PAID', matched: 1 }) }),
+    );
+  });
+
+  it('listOrders：非法 status 被忽略，不加入 where', async () => {
+    prisma.paymentOrder.count.mockResolvedValue(0);
+    prisma.paymentOrder.findMany.mockResolvedValue([]);
+    await svc.listOrders(req, { status: 'GARBAGE' });
+    const call = prisma.paymentOrder.findMany.mock.calls[0][0];
+    expect(call.where.status).toBeUndefined();
   });
 });

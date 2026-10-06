@@ -30,6 +30,8 @@ describe('AdminController 集成（守卫链 + P0/P1/P3 端点）', () => {
     revokeRole: jest.Mock;
     listShares: jest.Mock;
     revokeShare: jest.Mock;
+    listSubscriptions: jest.Mock;
+    listOrders: jest.Mock;
   };
   let injectedUser: any;
 
@@ -68,6 +70,8 @@ describe('AdminController 集成（守卫链 + P0/P1/P3 端点）', () => {
       revokeRole: jest.fn().mockResolvedValue({ userId: 'u1', role: 'AUDITOR', revoked: true }),
       listShares: jest.fn().mockResolvedValue({ total: 0, items: [], page: 1, pageSize: 20 }),
       revokeShare: jest.fn().mockResolvedValue({ shareId: 's1', revoked: true }),
+      listSubscriptions: jest.fn().mockResolvedValue({ total: 0, items: [], page: 1, pageSize: 20 }),
+      listOrders: jest.fn().mockResolvedValue({ total: 0, items: [], page: 1, pageSize: 20 }),
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -136,6 +140,17 @@ describe('AdminController 集成（守卫链 + P0/P1/P3 端点）', () => {
       roles: [Role.SUPER_ADMIN],
       perms: [Permission.SHARE_REVOKE_ALL],
       stepup: true,
+    });
+    // RBAC P3：订阅/订单列表
+    expect(meta(AdminController.prototype.listSubscriptions)).toEqual({
+      roles: [Role.SUPER_ADMIN, Role.OPERATOR],
+      perms: [Permission.SUBSCRIPTION_READ],
+      stepup: false,
+    });
+    expect(meta(AdminController.prototype.listOrders)).toEqual({
+      roles: [Role.SUPER_ADMIN, Role.OPERATOR],
+      perms: [Permission.ORDER_READ],
+      stepup: false,
     });
   });
 
@@ -325,6 +340,54 @@ describe('AdminController 集成（守卫链 + P0/P1/P3 端点）', () => {
       .set('x-stepup-token', signStepup('admin1'))
       .expect(200);
     expect(adminService.revokeRole).toHaveBeenCalledWith(expect.anything(), 'u1', 'AUDITOR', undefined);
+  });
+
+  // -------- P3 订阅/订单（subscription:read / order:read） --------
+
+  it('GET /admin/subscriptions：SUPER_ADMIN → 200', async () => {
+    injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
+    await request(app.getHttpServer()).get('/admin/subscriptions').query({ plan: 'STANDARD', status: 'ACTIVE' }).expect(200);
+    expect(adminService.listSubscriptions).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ plan: 'STANDARD', status: 'ACTIVE' }));
+  });
+
+  it('GET /admin/subscriptions：OPERATOR → 200（含 SUBSCRIPTION_READ）', async () => {
+    injectedUser = { userId: 'op1', roles: [Role.OPERATOR] };
+    await request(app.getHttpServer()).get('/admin/subscriptions').expect(200);
+    expect(adminService.listSubscriptions).toHaveBeenCalled();
+  });
+
+  it('GET /admin/subscriptions：AUDITOR → 403（无 subscription:read）', async () => {
+    injectedUser = { userId: 'aud1', roles: [Role.AUDITOR] };
+    await request(app.getHttpServer()).get('/admin/subscriptions').expect(403);
+    expect(adminService.listSubscriptions).not.toHaveBeenCalled();
+  });
+
+  it('GET /admin/subscriptions：SUPPORT → 403', async () => {
+    injectedUser = { userId: 'sup1', roles: [Role.SUPPORT] };
+    await request(app.getHttpServer()).get('/admin/subscriptions').expect(403);
+  });
+
+  it('GET /admin/orders：SUPER_ADMIN → 200', async () => {
+    injectedUser = { userId: 'admin1', roles: [Role.SUPER_ADMIN] };
+    await request(app.getHttpServer()).get('/admin/orders').query({ status: 'PAID' }).expect(200);
+    expect(adminService.listOrders).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ status: 'PAID' }));
+  });
+
+  it('GET /admin/orders：OPERATOR → 200', async () => {
+    injectedUser = { userId: 'op1', roles: [Role.OPERATOR] };
+    await request(app.getHttpServer()).get('/admin/orders').expect(200);
+    expect(adminService.listOrders).toHaveBeenCalled();
+  });
+
+  it('GET /admin/orders：AUDITOR → 403（无 order:read）', async () => {
+    injectedUser = { userId: 'aud1', roles: [Role.AUDITOR] };
+    await request(app.getHttpServer()).get('/admin/orders').expect(403);
+    expect(adminService.listOrders).not.toHaveBeenCalled();
+  });
+
+  it('未登录 → 401', async () => {
+    await request(app.getHttpServer()).get('/admin/subscriptions').expect(401);
+    await request(app.getHttpServer()).get('/admin/orders').expect(401);
   });
 
   // -------- P1 跨用户分享（解锁 R-6） --------
